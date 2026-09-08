@@ -2,6 +2,18 @@
   "format_version": 1,
   "data": [
     {
+      "code": "DENAABINIJI",
+      "reward": "深红凝珠*200、铜币*20000、委托手册·一*2",
+      "platforms": [
+        "pc",
+        "android",
+        "ios"
+      ],
+      "servers": [
+        "global"
+      ]
+    },
+    {
       "code": "JACKDAW",
       "expires_at": "2026-06-08T23:59:59+08:00"
     },
