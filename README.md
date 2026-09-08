@@ -75,8 +75,6 @@
 5. 没有提交 Cookie、Token、数据库、配置文件或其他敏感数据；
 6. 第三方图片/攻略等素材已经注明来源，且没有把“来源公开”误写成“可任意再分发”。
 
-如需图形化整理资源，可参考独立的 [`dna-resource-editor`](https://github.com/FlanChanXwO/dna-resource-editor)；但无论使用何种编辑方式，最终都应以本仓库当前 `main`、`resource_manifest.json` 和插件实际消费逻辑为准。
-
 ## 权利说明
 
 本仓库中的素材可能来自游戏官方、上游开源项目或社区作者，各自的授权和使用条件可能不同。
@@ -86,4 +84,3 @@
 ## 相关项目
 
 - 插件：[`FlanChanXwO/astrbot_plugin_dna`](https://github.com/FlanChanXwO/astrbot_plugin_dna)
-- 资源编辑器：[`FlanChanXwO/dna-resource-editor`](https://github.com/FlanChanXwO/dna-resource-editor)
