@@ -1,95 +1,92 @@
-# astrbot_plugin_dna_resources
+# dna-resource
 
-Public runtime resources for [`astrbot_plugin_dnaby`](https://github.com/FlanChanXwO/astrbot_plugin_dnaby).
+[`astrbot_plugin_dna`](https://github.com/FlanChanXwO/astrbot_plugin_dna) 的公共运行期资源仓库。
 
-The plugin's `下载全部资源` command clones this repository into its runtime data directory and
-validates `resource_manifest.json` before using the files. The repository intentionally contains
-only public resource assets and layout markers; it must not contain cookies, tokens, databases,
-bot configuration, or other private runtime data.
+这里存放插件渲染和资料查询所需的**公开资源**，例如角色/武器图片、图鉴、攻略、活动素材、别名、兑换码、字体以及登录媒体等。仓库不包含插件代码，也不应存放 Cookie、Token、账号数据库、Bot 配置、`.env` 或其他私有运行时数据。
 
-The assets may have different upstream sources and licensing terms. No blanket license is implied
-for third-party assets; retain or consult their upstream attribution and usage terms before
-redistributing them outside this repository.
+插件会把本仓库内容作为候选资源获取到 AstrBot 分配的插件数据目录，完成 manifest、路径和资源可用性校验后再切换为当前可用快照；同步失败时不应破坏已有的已验证资源。
 
-The `textures/` tree contains shared renderer backgrounds and card decorations. It is intentionally
-kept separate from `calendar/`, which contains activity assets, and from `wiki/`/`guide/`, which
-are indexed content collections.
+## 目录说明
 
-## Resource contract
+实际运行期布局以 [`resource_manifest.json`](./resource_manifest.json) 为准。目前主要目录如下：
 
-`resource_manifest.json` is format version `1` and declares the complete runtime layout, including
-`data` and `schemas`. Every declared directory must exist. The editor and the plugin accept only
-type-specific paths; this repository must not become a general file drop or an editor source tree.
+| 路径 | 内容 |
+| --- | --- |
+| `fonts/` | 卡片渲染使用的字体资源 |
+| `images/` | 角色头像、角色立绘、武器图片等基础素材 |
+| `videos/` | 登录页面背景视频等视频资源 |
+| `audios/` | 登录页面背景音乐等音频资源 |
+| `panel/` | 角色面板等卡片使用的通用背景素材 |
+| `alias/` | 角色与武器别名表 |
+| `data/` | 结构化公共数据，目前包含兑换码清单 |
+| `schemas/` | 公共数据对应的 JSON Schema |
+| `wiki/role/` | 角色图鉴图片 |
+| `wiki/weapon/` | 武器图鉴图片 |
+| `wiki/spirit/` | 魔灵图鉴图片 |
+| `guide/` | 按攻略作者整理的攻略图片 |
+| `weekly_item/` | 周报等功能使用的物品图标 |
+| `calendar/` | 活动日历相关图片 |
+| `textures/` | 角色卡、签到、体力、公告、帮助等共享渲染纹理 |
 
-The redeem-code source of truth is `data/redeem_codes.json`, validated against
-`schemas/redeem-codes.v1.schema.json`:
+`textures/` 与 `calendar/`、`wiki/`、`guide/` 分开维护：前者是 renderer 共用的背景、frame 和装饰素材，后几类则分别承载活动或按内容索引的图片。
 
-```json
-{
-  "format_version": 1,
-  "data": [
-    {
-      "code": "JACKDAW",
-      "reward": "委托密函×3",
-      "valid_from": "2026-08-01T00:00:00+08:00",
-      "expires_at": "2026-09-01T00:00:00+08:00",
-      "platforms": ["pc", "android", "ios"],
-      "servers": ["cn", "global"]
-    }
-  ]
-}
-```
+不要自行创建新的资源路径约定。新增资源类型前，应先确认插件端已经有对应的读取/渲染逻辑，再同步修改 manifest 与相关校验。
 
-`code` is the only required field. Trim outer whitespace only and do not force uppercase. The
-optional fields are `reward`, timezone-aware `valid_from`/`expires_at`, `platforms` (`pc`,
-`android`, `ios`) and `servers` (`cn`, `global`). Missing platform or server means that the source
-did not state it; it does not mean “all”. Keep planned, current, and expired entries, but do not
-write the legacy `end_at` field or unknown fields. Cross-entry code uniqueness and the ordering of
-the two time fields are semantic checks performed by the editor Worker Check and plugin validator;
-JSON Schema alone cannot express both rules.
+## 插件如何使用这些资源
 
-## Contribution and release
+插件端当前提供的资源管理命令包括：
 
-Use the [DNA resource editor](https://github.com/FlanChanXwO/dna-resource-editor) for changes. A
-submission creates one contribution branch, one commit, and one pull request; it never writes
-`main` directly. The GitHub App webhook checks the complete tree and publishes a Check named exactly
-`resource-contract`. Maintainers merge only after that Check is successful and the upstream asset
-rights are understood. The editor repository is separate from this pure-resource repository.
+- `dna资源状态`：查看当前资源快照和最近同步状态；
+- `dna同步资源`：从本仓库获取候选内容，校验通过后更新当前资源。
 
-The release order is:
+精确命令和权限以插件仓库的 [`commands.json`](https://github.com/FlanChanXwO/astrbot_plugin_dna/blob/main/commands.json) 为准。
 
-1. merge and record the resource commit SHA and `resource_version` on `main`;
-2. verify the raw data/schema and the plugin generation validator against that SHA;
-3. release or configure the plugin to fetch only `main`.
+资源同步遵循“**候选 → 校验 → 发布**”的流程。`resource_manifest.json`、必要目录、JSON 数据和可解码图片等检查未通过时，候选版本不应成为当前资源。
 
-Do not ask a plugin to consume a contribution branch, a mirror-only ref, or a commit that has not
-reached `main`. A mirror or proxy is only a transport path; it is not a release authority.
+## 资源来源与维护方式
 
-## Legacy redeem-code migration
+不同目录的来源并不相同，也不应假设所有资源都能通过同一个上游自动生成。
 
-The historical feed used `https://raw.gitcode.com/m0_69204072/dna/raw/main/dna_codes.json` and
-called the Unix-seconds expiry field `end_at`. The one-way migration converts each `end_at` to an
-offset-aware ISO 8601 `expires_at` (the initial migration uses `Asia/Shanghai`) and keeps only
-trustworthy known fields. If reward, platform, server, or start time was not present in the old
-feed, leave the corresponding new field absent; do not infer it. Preserve the old JSON outside the
-repository as an audit fixture, validate the new schema/semantic rules, and record the migration in
-`resource_version` before opening the PR. After the plugin release, the resource file is the only
-source; there is no silent GitCode fallback.
+### 可从游戏服务同步的资源
 
-## Rollback and trust boundary
+角色/武器基础图片、部分周报物品和活动素材主要来自《二重螺旋》公开游戏服务接口及其 CDN。维护时应优先按接口实际返回结果增量同步，避免因为某个账号暂时没有返回某项数据而误删仓库中已有资源。
 
-If a published resource is wrong, create a normal revert PR against `main`, wait for the
-`resource-contract` Check, merge it, and record the new main SHA. Never force-push or delete the
-original commit. The plugin's candidate generation validation should keep serving its previous
-verified snapshot when a candidate fails; a data rollback is still completed by a Git revert.
+### 静态图鉴、攻略与渲染纹理
 
-The editor Worker and plugin are rolled back independently. For a Worker incident, use the
-Cloudflare deployment rollback documented in the editor repository. For a plugin incident, keep
-the plugin runtime data directory and switch its resource acceleration to `off`; never promote
-unverified mirror content. The full procedure is in the editor's
-[`docs/operations.md`](https://github.com/FlanChanXwO/dna-resource-editor/blob/main/docs/operations.md)
-and the plugin's resource operations guide.
+- `wiki/`：属于静态图鉴素材。新角色、武器或魔灵缺图时，需要从可验证的上游项目或社区产出补充；当前不会假设存在一个完整的官方生成 API。
+- `guide/`：主要整理公开发布的攻略图片，并按作者分目录保存。提交时应保留来源信息并尊重原作者的使用要求。
+- `panel/`：通用卡片背景等人工维护素材，不属于角色接口自动同步内容。
+- `textures/`：插件多个 renderer 共用的背景、banner、frame 和装饰素材；文件名与插件资源映射保持一致，不应作为任意缓存目录使用。
 
-No root `LICENSE` in this repository should be read as a unified licence grant. The plugin's own
-GPL-3.0 licence applies to plugin code, while each third-party asset remains subject to its own
-source terms and attribution requirements.
+### 别名与兑换码
+
+- `alias/`：人工维护，新增别名时要避免同名或包含关系造成解析歧义。
+- [`data/redeem_codes.json`](./data/redeem_codes.json)：插件当前读取的兑换码事实源。
+- [`schemas/redeem-codes.v1.schema.json`](./schemas/redeem-codes.v1.schema.json)：兑换码数据结构约束。
+
+兑换码条目的 `code` 为必填字段；`reward`、`valid_from`、`expires_at`、`platforms`、`servers` 为可选字段。时间必须带时区，区服当前使用 `cn` / `global`，平台当前使用 `pc` / `android` / `ios`。
+
+未注明区服或平台时，应保持字段缺省，不要自行推断为“全服”或“全平台”。对有效期不确定的兑换码，也不要凭猜测填写截止时间。
+
+## 更新与贡献
+
+本仓库是资源仓库，不是通用文件投放区。建议所有改动通过独立分支和 Pull Request 进入 `main`，不要直接向 `main` 写入未经校验的内容。
+
+提交前至少确认：
+
+1. 文件位于现有资源契约允许的目录；
+2. JSON 文件可解析，并满足对应 Schema 和语义约束；
+3. 图片文件可以正常解码；
+4. 没有符号链接、绝对路径或 `..` 路径逃逸；
+5. 没有提交 Cookie、Token、数据库、配置文件或其他敏感数据；
+6. 第三方图片/攻略等素材已经注明来源，且没有把“来源公开”误写成“可任意再分发”。
+
+## 权利说明
+
+本仓库中的素材可能来自游戏官方、上游开源项目或社区作者，各自的授权和使用条件可能不同。
+
+仓库根目录没有统一许可证，并不代表所有第三方素材被统一授权。插件源码本身的许可证也不会自动覆盖本仓库中的图片、字体、攻略等外部资源。转载或在本项目之外重新分发前，请确认对应素材的原始来源和使用条款。
+
+## 相关项目
+
+- 插件：[`FlanChanXwO/astrbot_plugin_dna`](https://github.com/FlanChanXwO/astrbot_plugin_dna)
