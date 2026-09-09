@@ -147,6 +147,20 @@ cp -n /tmp/dnauid_upstream/DNAUID/dna_guide/texture2d/<作者>/*.webp <本仓库
 
 ---
 
+## D. 共享卡片纹理（textures/）
+
+`textures/` 保存 renderer 共用的背景、banner、frame 和装饰素材，当前按用途分为：
+
+- `common/`、`detail/`、`role/`：角色/武器卡片公共装饰；
+- `stamina/`、`sign/`：体力和签到卡片；
+- `mh/`、`ann/`、`help/`：密函、公告和帮助卡片；
+
+文件名与插件 resolver 的资源映射保持一致。新增纹理前先核对插件 renderer 的逻辑 key，
+不要把 `textures/` 当作任意缓存目录。提交前应对新增图片执行完整 PIL 解码和 SHA-256
+manifest 校验。
+
+---
+
 ## 提交流程（所有同步后的发布都走 PR）
 
 1. 建独立分支：`git checkout -b sync/<描述>`

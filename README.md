@@ -11,6 +11,10 @@ The assets may have different upstream sources and licensing terms. No blanket l
 for third-party assets; retain or consult their upstream attribution and usage terms before
 redistributing them outside this repository.
 
+The `textures/` tree contains shared renderer backgrounds and card decorations. It is intentionally
+kept separate from `calendar/`, which contains activity assets, and from `wiki/`/`guide/`, which
+are indexed content collections.
+
 ## Resource contract
 
 `resource_manifest.json` is format version `1` and declares the complete runtime layout, including
