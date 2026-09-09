@@ -3,6 +3,8 @@
   "required_dirs": [
     "fonts",
     "images",
+    "videos",
+    "audios",
     "panel",
     "alias",
     "data",
@@ -15,7 +17,7 @@
     "calendar",
     "textures"
   ],
-  "resource_version": "redeem-code-v1-resource-slimming-2026-09-08",
+  "resource_version": "resource-slimming-v1-login-media-v2-2026-09-09",
   "file_hashes": {
     "calendar/banner_bg.webp": "43487d4b1941f1802803d745ff963102947ac71777be28a6f3fb9e6b3e6d1ba6",
     "calendar/banner_frame.png": "677eb3d23cae8b3cca2cef3c2b093711edf2d2778f5492111f52f4ea7961fa42",
