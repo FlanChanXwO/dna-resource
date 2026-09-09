@@ -28,6 +28,8 @@ wiki/{role,weapon,spirit}/   # 图鉴静态图，文件名=角色/武器/魔灵�
 guide/<作者>/     # 攻略静态图，按作者目录组织（狩月庭攻略组、猫冬…）
 weekly_item/      # 周报物品图标 item_{itemId}.png
 calendar/         # 活动图（文件名=URL basename）
+textures/{ann,common,detail,help,mh,role,sign,stamina}/
+                  # 角色卡、签到、体力、公告、帮助等公共卡片纹理
 ```
 
 - 命名规则由插件消费方决定（见上括号），**不得自创路径模式**；不确定先查插件读取代码。
