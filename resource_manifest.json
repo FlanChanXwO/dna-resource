@@ -17,7 +17,7 @@
     "calendar",
     "textures"
   ],
-  "resource_version": "resource-slimming-v1-login-media-v2-2026-09-09",
+  "resource_version": "resource-slimming-v1-login-media-v3-2026-09-09",
   "file_hashes": {
     "calendar/banner_bg.webp": "43487d4b1941f1802803d745ff963102947ac71777be28a6f3fb9e6b3e6d1ba6",
     "calendar/banner_frame.png": "677eb3d23cae8b3cca2cef3c2b093711edf2d2778f5492111f52f4ea7961fa42",
@@ -45,6 +45,8 @@
     "textures/common/bg2.jpg": "62e4f8433cd5e038432c2a26dbeed01c7e7ea58862814059aa614594b5f58a4a",
     "textures/common/div.png": "83ec3848798f10a84b483ef19d3d5aa3c077569430f55de08a987e1193c69fd5",
     "textures/common/footer.png": "217a977af5cb795605854f779d91cc2254c1b35fede07db09016ed44f9fb4af2",
+    "textures/common/music_off.png": "baf4bcbcda84cd9d0af56c808524d54337342ccf68a3ac77eaa6222441e21166",
+    "textures/common/music_on.png": "68c664677e0cfc2255727c231f95d1101e492024e7c181960b77f4c4a736a44b",
     "textures/common/number/0.png": "f7cfc3768dd4fe66f043055a458e0112429adbeec522d52f95ba95e04ce11fd0",
     "textures/common/number/1.png": "ecac92bd193187aec94a59b110349c46bb3327e1fca6657b239b28afd78b6f5b",
     "textures/common/number/10.png": "6bfb06c198d1e3d5acd11df2715552779334df3836568111b1b04237a61d6905",
@@ -56,6 +58,7 @@
     "textures/common/number/7.png": "1ffed3b5860304df3e3f4fb9eb331415a3a3a67ddea846b39a22c35ac9548f0c",
     "textures/common/number/8.png": "a92f11213f4c8822ea1831cf22583086c2f44522c39815da13a5fdf137cf370b",
     "textures/common/number/9.png": "e5f09c4fc523084c932a8982db5fb36809bf08ec713f42fec1ee813dccec2e00",
+    "textures/common/title_logo.png": "d6bba6794f510c97c6e3e5924f0b004d7a85d6b3abdeda1f316a46a7e2a2f30d",
     "textures/detail/grade_0.png": "90a8b245a3419b5cf09845a97191a02b596ba87edcbc680d2014fb5d1cac097b",
     "textures/detail/grade_1.png": "ca66ba51b9065df50fb72dc4520a111a3397bb52557060d3d8f4efd3b4f7f774",
     "textures/detail/icons/icon1.png": "a182e687401afb574921d16f084dcc88671d44f6c56079ea59660394cc50fa5a",
