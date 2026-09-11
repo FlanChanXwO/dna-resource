@@ -58,6 +58,10 @@
 - `panel/`：通用卡片背景等人工维护素材，不属于角色接口自动同步内容。
 - `textures/`：插件多个 renderer 共用的背景、banner、frame 和装饰素材；文件名与插件资源映射保持一致，不应作为任意缓存目录使用。
 
+### 登录背景视频
+
+`videos/login/background.mp4` 属于人工维护的登录媒体。新素材提交前不要直接覆盖并上传原始 MP4，应先使用 [`scripts/prepare_login_video.py`](./scripts/prepare_login_video.py) 做无损 Fast Start remux 和 H.264 视频流校验。完整流程见 [`docs/login-video.md`](./docs/login-video.md)。
+
 ### 别名与兑换码
 
 - `alias/`：人工维护，新增别名时要避免同名或包含关系造成解析歧义。
@@ -68,6 +72,11 @@
 
 未注明区服或平台时，应保持字段缺省，不要自行推断为“全服”或“全平台”。对有效期不确定的兑换码，也不要凭猜测填写截止时间。
 
+## 维护文档
+
+- [资源同步流程](./docs/sync.md)
+- [登录背景视频更新](./docs/login-video.md)
+
 ## 更新与贡献
 
 本仓库是资源仓库，不是通用文件投放区。建议所有改动通过独立分支和 Pull Request 进入 `main`，不要直接向 `main` 写入未经校验的内容。
@@ -76,7 +85,7 @@
 
 1. 文件位于现有资源契约允许的目录；
 2. JSON 文件可解析，并满足对应 Schema 和语义约束；
-3. 图片文件可以正常解码；
+3. 图片文件可以正常解码；登录背景视频已按 [`docs/login-video.md`](./docs/login-video.md) 完成 Fast Start 与无损校验；
 4. 没有符号链接、绝对路径或 `..` 路径逃逸；
 5. 没有提交 Cookie、Token、数据库、配置文件或其他敏感数据；
 6. 第三方图片/攻略等素材已经注明来源，且没有把“来源公开”误写成“可任意再分发”。
