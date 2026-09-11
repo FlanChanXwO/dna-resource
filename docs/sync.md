@@ -11,7 +11,7 @@
 | `images/weapon` | 武器图标 64 | 游戏服 API + CDN | **脚本自动**（A） |
 | `weekly_item` | 周报物品图标 | 周报 API（需有效登录态） | **脚本半自动**（A，凭证受限） |
 | `calendar` | 活动图 | 活动 API `spur/calendar/activity/*` | **脚本半自动**（A 或浏览器抓取） |
-| `wiki/{role,weapon,spirit}` | 图鉴静态图 | 插件内置/DNAUID 基线 | **人工迁移**（B-wiki） |
+| `wiki/{role,weapon,spirit}` | 图鉴静态图 | 皎皎角（`dnabbs`）官方 Wiki 详情页 | **脚本半自动**（B-wiki） |
 | `guide/<作者>` | 攻略静态图 | B站攻略作者合集 | **脚本自动**（B-guide） |
 | `panel` | 卡片通用背景图 | 人工收集 | **人工**（C） |
 | `alias/` | 角色/武器别名 | 人工维护 | 人工（PR） |
@@ -70,19 +70,31 @@ astrbot-plugin-dev/.venv/bin/python \
 
 ---
 
-## B-wiki. 图鉴（wiki/）静态素材
+## B-wiki. 图鉴（wiki/）静态素材 —— 来自皎皎角官方 Wiki
 
-- 图鉴 webp **没有生成 API**，是静态图；当前内容来自插件内置纹理（源自 DNAUID 基线，2026-08）。
-- 覆盖：wiki role 31 / weapon 64 / spirit 26。
-- 新角色/新武器图鉴目前无自动渠道——需要时从 DNAUID 上游（`github.com/tyql688/DNAUID`，`dna_wiki/texture2d/`）或游戏社区产出迁移：
+图鉴 webp 的权威上游是**皎皎角（`dnabbs.yingxiong.com`）官方 Wiki 详情页**。该站点 SSR 渲染的正文容器 `.pec-right` 宽度就是 2460，与仓库里既有 `wiki/**.webp` 同源同尺寸（早期素材经由 DNAUID 间接搬运自同一站点，DNAUID 现已弃用）。
 
-```bash
-git clone --depth 1 https://github.com/tyql688/DNAUID.git /tmp/dnauid_upstream
-diff -rq /tmp/dnauid_upstream/DNAUID/dna_wiki/texture2d/role <本仓库>/wiki/role
-cp -n /tmp/dnauid_upstream/DNAUID/dna_wiki/texture2d/role/*.webp <本仓库>/wiki/role/
-```
+历史素材仍保留原有尺寸基线 2460 宽；新角色/武器图鉴一律从皎皎角抓取。
 
-- `wiki/` 文件名必须等于角色/武器/魔灵**规范名**（与 `alias/*.json` 的键一致），否则图鉴命令 `wiki_asset()` 解析不到。
+### 分类坐标（`POST /forum/wiki/condition` 可复核）
+
+| 目录 | section id | categorize id |
+|---|---|---|
+| `wiki/role` | 253 角色 | 270 |
+| `wiki/weapon` | 256 武器 | 258 近战 / 259 远程 / 449 灾厄武器 |
+| `wiki/spirit` | 275 魔灵图鉴 | 276 活力 / 277 失活 |
+
+### 抓取流程
+
+1. **列条目**：`POST https://dnabbs-api.yingxiong.com/forum/wiki/list`，body `id=<categorize id>&filterIds=`，h5 头（`version: 3.11.1`、`source: h5`、origin/refer 为 `https://dnabbs.yingxiong.com`），**匿名可访问**。返回的 `wikiId` 就是详情 id。
+2. **取详情**：`POST /forum/wiki/getDetail`，body `id=<wikiId>`。`data.content` 是可 `json.loads` 的字符串，`content.name` 即规范名，可用来核对文件名。
+3. **抓长图**：Playwright 打开 `https://dnabbs.yingxiong.com/pc/wiki/wikidetail/<wikiId>`，等折叠区展开后读 `.pec-right` 的 `scrollHeight`，把 viewport 高度设成该值，再对 `.pec-right` 元素截图。
+4. **转码**：`Image.open(png).convert("RGB").save(webp, "WEBP", quality=80, method=6)`。
+
+注意：`/pc/wiki` 和 `/pc/wiki/list` 是空壳路由，直接打开会报“页面不存在 / 页面出了点问题”；`/pc/wiki/home` 才会真正渲染并暴露条目链接。
+
+- `wiki/` 文件名必须等于角色/武器/魔灵**规范名**（与 `alias/*.json` 的键一致），否则图鉴命令 `wiki_asset()` 解析不到。官方 Wiki 上主角写作 `光·狩月人（男）` 等，落到仓库仍用 `男主-光`、`女主-光` 这类既有键名。
+- 游戏服接口与皎皎角并非一一对应：`血染织羽`（武器 id `20298`）在游戏服武器列表里，皎皎角目前只在 `物品大全/灾厄` 下以“血染织羽的原型”出现，因此暂无对应图鉴图，属上游如此，不要伪造。
 
 ---
 
@@ -165,7 +177,7 @@ manifest 校验。
 
 1. 建独立分支：`git checkout -b sync/<描述>`
 2. 只暂存本类资源改动（勿夹带 .DS_Store、运行数据、编辑器文件）
-3. 提交：标注来源与权利状态（例：`images 来自游戏服 API；wiki 来自 DNAUID 上游`）
+3. 提交：标注来源与权利状态（例：`images 来自游戏服 API；wiki 来自皎皎角官方 Wiki`）
 4. PR → 合并。仓库无 branch protection、编辑器 `resource-contract` Check 不一定触发，**合并前本地先过 AGENTS.md 第 5 节验证**。
 
 ## 验证清单（同步后必做）
@@ -189,4 +201,4 @@ assert s.wiki_asset('贝蕾妮卡'), '角色图鉴索引失败'
 - 男主（`120101`/`160101`）无官方立绘，`role_paint` 只有 29 张属正常。
 - guide 只覆盖 15 角色；其余 17 角色无攻略是攻略组未产出。
 - 活动图约 6/16 有 icon；calendar 图少是上游如此。
-- 素材权利：wiki/guide/panel 的第三方静态图，公开分发前需确认上游权利（DNAUID 为 GPL-3.0，其携带素材另有归属）。
+- 素材权利：wiki/guide/panel 的第三方静态图，公开分发前需确认上游权利；皎皎角 Wiki 内容为社区贡献者产出，游戏素材权利归官方。
