@@ -49,13 +49,14 @@ textures/{ann,common,detail,help,mh,role,sign,stamina}/
 - 需签名接口（`/role/defaultRoleForTool` 等）走 sa/tn + RSA；`/role/getCharDetail` 等明文。
 - body 需带 `userId`（从 JWT token payload 解析）。
 - 角色/武器/立绘：`role/defaultRoleForTool` → `role/getCharDetail.paint` 得 URL → 下载改名。
-- 覆盖情况：role_avatar 31、role_paint 29（男主 120101/160101 服务端无立绘）、weapon 64。
+- 覆盖情况：role_avatar 32、role_paint 29（男主 `120101`/`160101` 服务端无立绘）、weapon 66。
+- 武器覆盖还包含 3 把**灾厄武器**（`权火将熄`/`无止无休`/`棘刺绝响`），它们只存在于皎皎角 Wiki 的 `武器/灾厄武器`，**不在** `defaultRoleForTool` 的武器列表里，以 wiki 为准。
 - 新角色/武器出现：**重跑脚本即可**，接口自动下发新 ID 与 URL。
 
 ### 3.2 静态素材（wiki/ guide/ panel/ 一部分）
 
 - **guide 攻略图**：持续来源是 **B 站攻略作者合集**（狩月庭攻略组 mid 3546915226519877 合集 6985158 → 评论区"一图流"长图；猫冬MT mid 91489061 合集 7015403 → 视频封面 2560×1440）。用 `DNA-analysis/script/sync_bili_guide.py` 同步（拉合集→识别角色→下载→存 `guide/<作者>/<角色>.webp`），作者发新视频即可跟更。
-- **wiki 图鉴图**：没有生成 API，静态图；新角色图鉴需从 DNAUID 上游（`dna_wiki/texture2d/`）或社区产出迁移。
+- **wiki 图鉴图**：权威上游是**皎皎角（`dnabbs`）官方 Wiki 详情页**，用 `POST /forum/wiki/condition` + `/forum/wiki/list` 拿 `wikiId`，再用 Playwright 抓 `.pec-right` 整页长图。具体坐标与步骤见 `docs/sync.md` 的 B-wiki。不要再用 DNAUID（已弃用，其素材本身就是从皎皎角搬的）。
 - **panel**：卡片通用背景图（`panel_N.png` 横版），非角色专属；无官方 API 源，人工补充。
 
 ### 3.3 素材权利
@@ -116,7 +117,7 @@ print(len(s.wiki_assets), s.wiki_asset('贝蕾妮卡'))
 |---|---|
 | 新角色头像/立绘/武器图 | 跑 sync_dna_resources.py（3.1），PR 提交新增文件 |
 | 攻略缺某角色 | 跑 sync_bili_guide.py（B站作者合集）→ 第 5 节验证 → PR |
-| 图鉴缺某角色/武器 | 检查上游 DNAUID dna_wiki 是否有 → 搬入对应目录 → 第 5 节验证 → PR |
+| 图鉴缺某角色/武器 | 先用 `/forum/wiki/condition` 找 categorize id → `/forum/wiki/list` 找 `wikiId` → 抓 `.pec-right` 长图归一到 2460 宽 webp（docs/sync.md B-wiki） → 第 5 节验证 → PR |
 | 兑换码更新 | 只改 data/redeem_codes.json，遵守 schema/语义，走 PR |
 | 角色别名/武器别名 | 改 alias/*.json，避免歧义，走 PR |
 | 想加新资源类型 | 先查插件消费方是否支持该路径，否则不做 |
