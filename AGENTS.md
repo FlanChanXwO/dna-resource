@@ -4,8 +4,8 @@
 
 ## 0. 仓库性质（一切判断的出发点）
 
-- 本仓库是 **`astrbot_plugin_dnaby` 的公共运行期资源**，只放公开资源素材与布局标记。
-- 仓库**不是**：代码仓库、编辑器仓库、运行时数据目录、个人文件备份。
+- 本仓库是 **`astrbot_plugin_dnaby` 的公共运行期资源**，主要放公开资源素材与布局标记；`scripts/` 仅允许存放维护这些公开资源所需的轻量工具，不属于插件运行时依赖。
+- 仓库**不是**：插件业务代码仓库、编辑器仓库、运行时数据目录、个人文件备份。
 - 参照实现（只读）：插件源码在 `astrbot-plugin-dev/data/plugins/astrbot_plugin_dnaby`；编辑器在 `dna-resource-editor`。需要弄清"某目录被怎么消费"时，去插件 `src/infrastructure/resources/`、`src/infrastructure/rendering/` 查 `EncyclopediaResourceStore` / `ResourceMap` / `generation.py` 的实际读取路径，不要靠猜。
 
 ## 1. 语言
@@ -15,11 +15,12 @@
 
 ## 2. 目录契约（manifest 约束）
 
-`resource_manifest.json` 的 `required_dirs` 声明运行期布局，**新增文件必须落在这些目录或其既有子结构内**：
+`resource_manifest.json` 的 `required_dirs` 声明运行期布局，**新增运行期资源必须落在这些目录或其既有子结构内**：
 
 ```
 fonts/            # 渲染字体（dna_fonts.ttf 等）
 images/           # 角色头像 role_avatar/{charId}.png、立绘 role_paint/{charId}.png、武器 weapon/{weaponId}.png
+videos/           # 登录背景视频等视频资源；当前固定 videos/login/background.mp4
 panel/            # 卡片通用背景图（如 panel_1.png…，横版大图；非角色专属）
 alias/            # char_alias.json / weapon_alias.json（别名）
 data/             # redeem_codes.json（兑换码 v1，唯一权威源）+ schemas/ 校验
@@ -35,10 +36,11 @@ textures/{ann,common,detail,help,mh,role,sign,stamina}/
 - 命名规则由插件消费方决定（见上括号），**不得自创路径模式**；不确定先查插件读取代码。
 - `resource_manifest.json` 不含 `images/weapon` 等二级声明属正常——校验只要求列出的目录存在；images 下子目录由渲染器约定。
 - 删除/移动文件同理：只能在上述类型化路径内做，且必须评估插件 `EncyclopediaResourceStore`/`ResourceMap` 索引是否随之失效。
+- `docs/`、`scripts/`、`AGENTS.md`、`README.md` 等仓库维护文件不属于运行期资源目录；不要把它们加入 `required_dirs`。
 
 ## 3. 素材来源与同步（重要）
 
-素材分两类，**更新方式完全不同**：
+素材分为自动同步素材和人工维护静态素材，更新方式不能混用。
 
 ### 3.1 游戏服 API 可自动同步的（images/ weekly_item/ calendar/ 等）
 
@@ -59,9 +61,24 @@ textures/{ann,common,detail,help,mh,role,sign,stamina}/
 - **wiki 图鉴图**：权威上游是**皎皎角（`dnabbs`）官方 Wiki 详情页**，用 `POST /forum/wiki/condition` + `/forum/wiki/list` 拿 `wikiId`，再用 Playwright 抓 `.pec-right` 整页长图。具体坐标与步骤见 `docs/sync.md` 的 B-wiki。不要再用 DNAUID（已弃用，其素材本身就是从皎皎角搬的）。
 - **panel**：卡片通用背景图（`panel_N.png` 横版），非角色专属；无官方 API 源，人工补充。
 
-### 3.3 素材权利
+### 3.3 登录背景视频
 
-- wiki/guide/panel 的第三方静态图权利未在上游确认前，不得宣称"已清权可公开分发"。
+- 固定目标路径：`videos/login/background.mp4`。
+- 新视频属于人工维护素材，确认来源与权利状态后再替换。
+- **不要直接提交原始 MP4**。先执行：
+
+```bash
+python3 scripts/prepare_login_video.py /path/to/source.mp4
+```
+
+- 维护脚本要求输入第一视频流为 H.264，使用 `-c:v copy -movflags +faststart` 做无损 remux；登录背景始终静音，因此只保留第一视频流并移除音轨。
+- 脚本会比较 remux 前后的 H.264 elementary stream SHA-256，并检查 `moov` 在 `mdat` 之前；任一校验失败都不得覆盖正式视频。
+- 视频更新后必须同步修改 `resource_manifest.json` 的 `resource_version`，不要复用旧版本号。
+- 完整流程见 `docs/login-video.md`。
+
+### 3.4 素材权利
+
+- wiki/guide/panel/视频等第三方静态素材权利未在上游确认前，不得宣称"已清权可公开分发"。
 - 提交信息与 PR 中应标注素材来源与权利状态。
 
 ## 4. 提交流程（发布纪律）
@@ -101,12 +118,14 @@ print(len(s.wiki_assets), s.wiki_asset('贝蕾妮卡'))
 
 - 新增 alias 键时，确认它不在 `alias/*.json` 造成歧义（与现有键冲突）。
 - 修改兑换码后，用编辑器 schema + 语义规则（code 唯一、时间有序）校验。
+- 修改 `videos/login/background.mp4` 时必须通过 `scripts/prepare_login_video.py` 的 Fast Start 与 H.264 SHA-256 校验，并更新 `resource_version`。
 
 ## 6. 禁令（红线）
 
 - 禁止加入：token、cookie、数据库、bot 配置、`.env`、密钥、`cmd_config.json` 类平台配置、编辑器代码/依赖、构建产物。
-- 禁止把仓库变成任意文件投放处——只放类型化资源路径能解释的文件。
-- 禁止符号链接、绝对路径、`..` 逃逸、非 manifest 目录的新增（除非同步改 manifest 且走 PR）。
+- 禁止把仓库变成任意文件投放处——运行期内容只放类型化资源路径能解释的文件。
+- `scripts/` 只用于资源维护，不得引入插件业务逻辑、运行时依赖、凭证读取、网络账号状态或生成产物。
+- 禁止符号链接、绝对路径、`..` 逃逸、非 manifest 目录的新增运行期资源（除非同步改 manifest 且走 PR）。
 - 禁止静默把运行时下载缓存（如插件 `resource/` 运行目录内容）当作公共资源提交。
 - 禁止在未确认第三方素材权利时声称可公开再分发。
 - 图片同步不得覆盖/删除"接口未返回但仓库已有"的文件（某角色可能只是账号未拥有，不是不存在）。
@@ -118,6 +137,7 @@ print(len(s.wiki_assets), s.wiki_asset('贝蕾妮卡'))
 | 新角色头像/立绘/武器图 | 跑 sync_dna_resources.py（3.1），PR 提交新增文件 |
 | 攻略缺某角色 | 跑 sync_bili_guide.py（B站作者合集）→ 第 5 节验证 → PR |
 | 图鉴缺某角色/武器 | 先用 `/forum/wiki/condition` 找 categorize id → `/forum/wiki/list` 找 `wikiId` → 抓 `.pec-right` 长图归一到 2460 宽 webp（docs/sync.md B-wiki） → 第 5 节验证 → PR |
+| 更新登录背景视频 | 跑 `scripts/prepare_login_video.py <源MP4>` → 更新 `resource_version` → 按 `docs/login-video.md` 验证 → PR |
 | 兑换码更新 | 只改 data/redeem_codes.json，遵守 schema/语义，走 PR |
 | 角色别名/武器别名 | 改 alias/*.json，避免歧义，走 PR |
 | 想加新资源类型 | 先查插件消费方是否支持该路径，否则不做 |
