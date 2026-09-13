@@ -85,9 +85,10 @@ python3 scripts/prepare_login_video.py /path/to/source.mp4
 
 ### 4.1 资源版本（强制）
 
-- 根目录 `version` 只允许正整数（`^[1-9][0-9]*$`）；任何进入 `main` 的 PR 都必须改为严格大于 base 的版本。
-- 资源、别名、兑换码、字体、纹理和文档改动一律 bump，并同步 `resource_manifest.json.resource_version`（JSON string）。禁止复用、降低、前导零或描述性版本号。
-- 首次迁移允许 base 缺少 `version`，且 head 必须为 `1`；之后文件永久存在。PR 的 `Resource Version` 检查必须通过。
+- 根目录 `version` 只允许正整数（`^[1-9][0-9]*$`）；PR 改动了任何资源相关内容（资源目录、`resource_manifest.json`、`version` 等）时，必须改为严格大于 base 的版本。
+- 资源、别名、兑换码、字体、纹理改动一律 bump，并同步 `resource_manifest.json.resource_version`（JSON string）。禁止复用、降低、前导零或描述性版本号。
+- 仅改动资源无关内容（`docs/`、`scripts/`、`.github/`、`AGENTS.md`、`README.md`、`CHANGELOG.md`）的 PR，`Resource Version Check` 会自动跳过，无需 bump；未列出的路径默认视为资源相关。
+- 首次迁移允许 base 缺少 `version`，且 head 必须为 `1`；之后文件永久存在。资源相关 PR 的 `Resource Version Check` 必须通过。
 
 - **不直写 `main`**。改动一律：建独立分支 → 单 commit → PR → 合并。
 - 编辑器的 `resource-contract` Check 依赖 GitHub App webhook，**并非所有 PR 都触发**；没有 Check 不代表可绕过自检——提交前本地必须跑通第 5 节验证。
