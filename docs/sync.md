@@ -4,7 +4,7 @@
 
 ## 版本（资源相关 PR 必须）
 
-根目录 `version` 只能是正整数。任何资源、别名、兑换码、字体、纹理或 `resource_manifest.json` 变更都必须提高版本，并将 `resource_manifest.json.resource_version` 同步为同一个数字字符串；仅改动 `docs/`、`scripts/`、`.github/` 等资源无关内容时检查自动跳过，无需 bump。提交前运行 `python3 scripts/check_resource_version.py --base <base-ref> --head <head-ref>`。首次迁移的 head 必须为 `1`；之后不得删除 `version`。
+根目录 `version` 只能是正整数。任何资源、别名、兑换码、字体、纹理或 `resource_manifest.json` 变更都必须提高版本，并将 `resource_manifest.json.resource_version` 同步为同一个数字字符串；仅改动 `docs/`、`scripts/`、`.github/` 等资源无关内容时检查自动跳过，无需 bump（CI 实测验证）。提交前运行 `python3 scripts/check_resource_version.py --base <base-ref> --head <head-ref>`。首次迁移的 head 必须为 `1`；之后不得删除 `version`。
 
 ## 资源分类速览
 
