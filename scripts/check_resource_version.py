@@ -3,6 +3,11 @@ import argparse, json, re, subprocess, sys
 
 PATTERN = re.compile(r"^[1-9][0-9]*$")
 
+# 与资源无关的前缀路径：只改动这些内容时跳过版本检查（按前缀匹配）
+UNRELATED_PREFIXES = ("docs/", "scripts/", ".github/")
+# 与资源无关的仓库级文件（精确匹配）
+UNRELATED_FILES = {"AGENTS.md", "README.md", "CHANGELOG.md"}
+
 class VersionCheckError(Exception):
     pass
 
@@ -14,6 +19,21 @@ def read_file(ref: str, path: str) -> str | None:
     except subprocess.CalledProcessError:
         return None
 
+def changed_files(base_ref: str, head_ref: str) -> list[str]:
+    out = subprocess.check_output(
+        ["git", "diff", "--name-only", base_ref, head_ref],
+        text=True, stderr=subprocess.DEVNULL,
+    )
+    return [line for line in out.splitlines() if line]
+
+def is_unrelated(path: str) -> bool:
+    return path in UNRELATED_FILES or path.startswith(UNRELATED_PREFIXES)
+
+def has_resource_changes(files: list[str]) -> bool:
+    # 默认视为资源相关（包括 version、resource_manifest.json 与全部资源目录），
+    # 只有明确列出的资源无关内容才豁免，避免新增目录被误判为免检
+    return any(not is_unrelated(f) for f in files)
+
 def parse_version(raw: str) -> int:
     value = raw[:-1] if raw.endswith("\n") else raw
     if not PATTERN.fullmatch(value):
@@ -21,6 +41,10 @@ def parse_version(raw: str) -> int:
     return int(value)
 
 def check(base_ref: str, head_ref: str) -> None:
+    files = changed_files(base_ref, head_ref)
+    if not has_resource_changes(files):
+        print("Resource Version Check: skipped (no resource-related changes)")
+        return
     base_raw, head_raw = read_file(base_ref, "version"), read_file(head_ref, "version")
     if head_raw is None:
         raise VersionCheckError("head/version is missing")
@@ -50,6 +74,6 @@ def main() -> int:
     try: check(args.base, args.head)
     except VersionCheckError as exc:
         print(f"resource version check failed:\n{exc}", file=sys.stderr); return 1
-    print("Resource Version: passed"); return 0
+    print("Resource Version Check: passed"); return 0
 
 if __name__ == "__main__": raise SystemExit(main())

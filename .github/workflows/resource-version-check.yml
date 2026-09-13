@@ -1,14 +1,15 @@
-name: Resource Version
+name: Resource Version Check
 on:
   pull_request_target:
     types: [opened, synchronize, reopened]
 permissions:
   contents: read
 jobs:
-  resource-version:
-    name: Resource Version
+  resource-version-check:
+    name: Resource Version Check
     runs-on: ubuntu-latest
     steps:
+      # 工作区检出到 base：始终运行 main 上的校验脚本，避免执行 PR 控制的代码
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.base.sha }}

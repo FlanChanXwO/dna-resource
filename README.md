@@ -45,7 +45,7 @@
 
 ## 版本规范
 
-根目录 `version` 只能包含正整数。任何进入 `main` 的 PR（包括文档变更）都必须将版本提高到严格大于 base 的数字，并同步设置 `resource_manifest.json.resource_version` 为同一个数字字符串；`Resource Version` 检查会校验格式、递增关系和一致性。
+根目录 `version` 只能包含正整数。改动了资源相关内容（资源目录、`resource_manifest.json`、`version` 等）的 PR 都必须将版本提高到严格大于 base 的数字，并同步设置 `resource_manifest.json.resource_version` 为同一个数字字符串；仅改动 `docs/`、`scripts/`、`.github/` 等资源无关内容的 PR 会自动跳过该检查。`Resource Version Check` 会校验是否豁免、格式、递增关系和一致性。
 
 ## 资源来源与维护方式
 
