@@ -17,7 +17,7 @@
     "calendar",
     "textures"
   ],
-  "resource_version": "2",
+  "resource_version": "3",
   "file_hashes": {
     "calendar/banner_bg.webp": "43487d4b1941f1802803d745ff963102947ac71777be28a6f3fb9e6b3e6d1ba6",
     "calendar/banner_frame.png": "677eb3d23cae8b3cca2cef3c2b093711edf2d2778f5492111f52f4ea7961fa42",
@@ -148,6 +148,12 @@
     "textures/stamina/icon3.png": "59062dbb9b9754e15a99e5e8ace242327baca66f85ebb4a41e385ac471491cd5",
     "textures/stamina/icon4.png": "d115c7bfe70c796bc6ad50f5828d4974c6abedd73838d009697ff4dce8c657c2",
     "textures/stamina/running.png": "9970ddd2401aab03e9a27b21c8f813000590ee2a7485e037895a776bc447aa23",
-    "textures/stamina/success.png": "02193f7433fec29e78f8c4919ba6e3f5e44fc2cc1540b0e2c3ba8860b12ca12f"
+    "textures/stamina/success.png": "02193f7433fec29e78f8c4919ba6e3f5e44fc2cc1540b0e2c3ba8860b12ca12f",
+    "textures/weekly_report/quality/q0.png": "0dc062e0e6552177503ab76416126d07a9537f4a47de4df6bb96fb4407b804b0",
+    "textures/weekly_report/quality/q1.png": "50a4a5c19b7f65ec4ad67dbdb0525dc87316416ed937138428509595ef3031ba",
+    "textures/weekly_report/quality/q2.png": "7cdf104f1a588a9f76ab344405200fae2a9aa7c6b1faaaab3aff34427cc65843",
+    "textures/weekly_report/quality/q3.png": "63ac9326b3ce69b14fc89ed884c158ca15b84e29e5247bd3d4e1e45efed25cd0",
+    "textures/weekly_report/quality/q4.png": "7b1b4c9ca4239b43aeb900b8ff4b1b97d1f2cee99d030b64f89a4788c2a371e2",
+    "textures/weekly_report/quality/q5.png": "8f79402b1facbbbd9cf032273a4a7e0483e7672bbc89cf04b9064c60f395a705"
   }
 }
