@@ -37,8 +37,8 @@
 
 ```bash
 # 读取凭证（脱敏使用，用完即删临时文件）
-sqlite3 <插件数据>/dnaby.db \
-  "SELECT cookie||':'||dev_code||':'||d_num||':'||refresh_token FROM dnauser LIMIT 1" \
+sqlite3 <插件数据>/db/dna.sqlite3 \
+  "SELECT app_cookie||':'||app_device_code||':'||app_d_num||':'||app_refresh_token FROM credential_records WHERE app_status = 'valid' LIMIT 1" \
   > /tmp/dna_cred.txt
 CRED=$(cat /tmp/dna_cred.txt); rm -f /tmp/dna_cred.txt
 
@@ -191,7 +191,7 @@ manifest 校验。
 find . -type l   # 空
 # PIL 解码全部新增图（wiki/guide/webp、images/png）
 # 资源索引解析（用插件 venv）
-PYTHONPATH=astrbot-plugin-dev/data/plugins/astrbot_plugin_dnaby/src \
+PYTHONPATH=astrbot-plugin-dev/data/plugins/astrbot_plugin_dna/src \
   astrbot-plugin-dev/.venv/bin/python -c "
 from infrastructure.resources.encyclopedia import EncyclopediaResourceStore
 s = EncyclopediaResourceStore.from_root('<本仓库根>')
