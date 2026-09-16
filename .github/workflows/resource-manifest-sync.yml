@@ -1,0 +1,72 @@
+name: Resource Manifest Sync
+# PR 合并进 main 后自动生成 resource_manifest.json（计划 §11-§14）。
+# 无 schedule、无周期任务；并发串行化，不丢合并事件。
+on:
+  pull_request:
+    types:
+      - closed
+permissions:
+  contents: write
+concurrency:
+  # 串行处理合并事件：过期 run 会排队而非互相覆盖
+  group: resource-manifest-sync-main
+  cancel-in-progress: false
+jobs:
+  sync-manifest:
+    # 只处理真正合并进 main 的 PR
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.RESOURCE_MANIFEST_SYNC_TOKEN }}
+
+      # 快速判定（O(1)）：version 与 manifest.resource_version 相等则无事可做。
+      # docs-only PR 在这里直接退出；同时兜住上一次 sync 失败后的追平场景。
+      - name: Quick check version vs resource_version
+        id: quick
+        run: |
+          VERSION="$(cat version)"
+          RESOURCE_VERSION="$(python3 -c "import json;print(json.load(open('resource_manifest.json'))['resource_version'])")"
+          echo "version=${VERSION} resource_version=${RESOURCE_VERSION}"
+          if [ "${VERSION}" = "${RESOURCE_VERSION}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "manifest already in sync; nothing to do"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate manifest
+        if: steps.quick.outputs.skip == 'false'
+        run: python3 scripts/generate_resource_manifest.py .
+
+      # 提交前保护：工作区只允许出现 resource_manifest.json（计划 §13）
+      - name: Guard only manifest may be modified
+        if: steps.quick.outputs.skip == 'false'
+        run: |
+          DIRTY="$(git diff --name-only)"
+          echo "workspace changes: ${DIRTY}"
+          if [ -z "${DIRTY}" ]; then
+            echo "no changes produced; manifest already up to date"
+            echo "has_changes=false" >> "$GITHUB_OUTPUT"
+          elif [ "${DIRTY}" = "resource_manifest.json" ]; then
+            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::generator produced unexpected workspace changes; refusing to commit"
+            exit 1
+          fi
+
+      - name: Commit and push
+        if: steps.quick.outputs.skip == 'false' && steps.guard.outputs.has_changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- resource_manifest.json
+          git commit -m "chore: sync generated resource manifest"
+          # 只做普通 push，禁止 force push；若其他 PR 先进了 main，
+          # non-fast-forward 失败即可——那个合并事件已排队下一次 sync，会自动追平
+          git push origin HEAD:main

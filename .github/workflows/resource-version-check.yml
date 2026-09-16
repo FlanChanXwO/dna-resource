@@ -4,6 +4,9 @@ on:
     types: [opened, synchronize, reopened]
 permissions:
   contents: read
+concurrency:
+  group: resource-version-check-${{ github.event.pull_request.head.sha }}
+  cancel-in-progress: true
 jobs:
   resource-version-check:
     name: Resource Version Check
