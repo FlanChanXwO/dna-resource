@@ -133,3 +133,14 @@ class TestResourceHashes:
         commit_all(tmp_path)
         with pytest.raises(chk.VersionCheckError, match="resourcehashes"):
             run_check("main", "pr", tmp_path)
+
+
+class TestMaintenanceFiles:
+    def test_tests_dir_is_maintenance_exempt(self, tmp_path):
+        # tests/ 属于仓库维护内容：新增测试无需 bump version
+        make_repo(tmp_path)
+        git(tmp_path, "checkout", "-qb", "pr")
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "tests" / "test_x.py").write_text("def test_x(): pass\n")
+        commit_all(tmp_path)
+        run_check("main", "pr", tmp_path)  # 不抛错即通过

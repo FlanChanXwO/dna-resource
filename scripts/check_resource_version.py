@@ -20,8 +20,10 @@ import sys
 
 PATTERN = re.compile(r"^[1-9][0-9]*$")
 
-# 与资源无关的前缀路径：只改动这些内容时跳过版本检查（按前缀匹配）
-UNRELATED_PREFIXES = ("docs/", "scripts/", ".github/")
+# 与资源无关的前缀路径：只改动这些内容时跳过版本检查（按前缀匹配）。
+# tests/ 只覆盖仓库维护工具自身的测试，不属于运行期资源，
+# 否则基础设施 PR（新增测试、不改 version）会被误判为资源变更
+UNRELATED_PREFIXES = ("docs/", "scripts/", ".github/", "tests/")
 # 与资源无关的仓库级文件（精确匹配）
 UNRELATED_FILES = {"AGENTS.md", "README.md", "CHANGELOG.md"}
 
