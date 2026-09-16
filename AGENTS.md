@@ -1,12 +1,12 @@
 # AGENTS.md — astrbot_plugin_dna_resources
 
-本文件约束在本仓库工作的智能体（agent/模型）。内容按「仓库性质 → 目录契约 → 素材来源与同步 → 提交流程 → 验证 → 禁令」组织；所有规则服务于一个目标：**让本仓库始终是「可被 `astrbot_plugin_dnaby` 插件安全消费的纯公开资源」**。
+本文件约束在本仓库工作的智能体（agent/模型）。内容按「仓库性质 → 目录契约 → 素材来源与同步 → 提交流程 → 验证 → 禁令」组织；所有规则服务于一个目标：**让本仓库始终是「可被 `astrbot_plugin_dna` 插件安全消费的纯公开资源」**。
 
 ## 0. 仓库性质（一切判断的出发点）
 
-- 本仓库是 **`astrbot_plugin_dnaby` 的公共运行期资源**，主要放公开资源素材与布局标记；`scripts/` 仅允许存放维护这些公开资源所需的轻量工具，不属于插件运行时依赖。
+- 本仓库是 **`astrbot_plugin_dna` 的公共运行期资源**，主要放公开资源素材与布局标记；`scripts/` 仅允许存放维护这些公开资源所需的轻量工具，不属于插件运行时依赖。
 - 仓库**不是**：插件业务代码仓库、编辑器仓库、运行时数据目录、个人文件备份。
-- 参照实现（只读）：插件源码在 `astrbot-plugin-dev/data/plugins/astrbot_plugin_dnaby`；编辑器在 `dna-resource-editor`。需要弄清"某目录被怎么消费"时，去插件 `src/infrastructure/resources/`、`src/infrastructure/rendering/` 查 `EncyclopediaResourceStore` / `ResourceMap` / `generation.py` 的实际读取路径，不要靠猜。
+- 参照实现（只读）：插件源码在 `astrbot-plugin-dev/data/plugins/astrbot_plugin_dna`；编辑器在 `dna-resource-editor`。需要弄清"某目录被怎么消费"时，去插件 `src/infrastructure/resources/`、`src/infrastructure/rendering/` 查 `EncyclopediaResourceStore` / `ResourceMap` / `generation.py` 的实际读取路径，不要靠猜。
 
 ## 1. 语言
 
@@ -115,7 +115,7 @@ print('bad:', bad)
 find . -type l   # 必须无输出
 
 # 2) 资源索引可解析（模拟插件 EncyclopediaResourceStore 加载）
-PYTHONPATH=astrbot-plugin-dev/data/plugins/astrbot_plugin_dnaby/src \
+PYTHONPATH=astrbot-plugin-dev/data/plugins/astrbot_plugin_dna/src \
   astrbot-plugin-dev/.venv/bin/python -c "
 from infrastructure.resources.encyclopedia import EncyclopediaResourceStore
 s = EncyclopediaResourceStore.from_root('.')
