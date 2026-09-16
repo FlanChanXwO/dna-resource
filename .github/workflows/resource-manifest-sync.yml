@@ -23,7 +23,7 @@ jobs:
         with:
           ref: main
           fetch-depth: 0
-          token: ${{ secrets.RESOURCE_MANIFEST_SYNC_TOKEN }}
+          token: ${{ secrets.RESOURCE_MANIFEST_SYNC_TOKEN || github.token }}
 
       # 快速判定（O(1)）：version 与 manifest.resource_version 相等则无事可做。
       # docs-only PR 在这里直接退出；同时兜住上一次 sync 失败后的追平场景。
