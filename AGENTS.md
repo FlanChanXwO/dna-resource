@@ -73,7 +73,7 @@ python3 scripts/prepare_login_video.py /path/to/source.mp4
 
 - 维护脚本要求输入第一视频流为 H.264，使用 `-c:v copy -movflags +faststart` 做无损 remux；登录背景始终静音，因此只保留第一视频流并移除音轨。
 - 脚本会比较 remux 前后的 H.264 elementary stream SHA-256，并检查 `moov` 在 `mdat` 之前；任一校验失败都不得覆盖正式视频。
-- 视频更新后必须同步修改 `resource_manifest.json` 的 `resource_version`，不要复用旧版本号。
+- 视频更新后只需 bump 根目录 `version`；`resource_manifest.json.resource_version` 由合并后的 `Resource Manifest Sync` workflow 自动生成，禁止手工编辑 manifest。
 - 完整流程见 `docs/login-video.md`。
 
 ### 3.4 素材权利
@@ -85,8 +85,10 @@ python3 scripts/prepare_login_video.py /path/to/source.mp4
 
 ### 4.1 资源版本（强制）
 
-- 根目录 `version` 只允许正整数（`^[1-9][0-9]*$`）；PR 改动了任何资源相关内容（资源目录、`resource_manifest.json`、`version` 等）时，必须改为严格大于 base 的版本。
-- 资源、别名、兑换码、字体、纹理改动一律 bump，并同步 `resource_manifest.json.resource_version`（JSON string）。禁止复用、降低、前导零或描述性版本号。
+- 根目录 `version` 只允许正整数（`^[1-9][0-9]*$`）；PR 改动了任何资源相关内容（资源目录、`.resourcehashes`、`version` 等）时，必须改为严格大于 base 的版本。
+- 资源、别名、兑换码、字体、纹理、`.resourcehashes` 改动一律 bump `version`。禁止复用、降低、前导零或描述性版本号。
+- **`resource_manifest.json` 是合并后自动生成的产物，禁止在 PR 中手工编辑**；PR 中出现对该文件的任何修改会直接导致 `Resource Version Check` 失败。合并后由 `Resource Manifest Sync` workflow（`github-actions[bot]`）自动更新 `resource_version` 与 `file_hashes`。
+- `file_hashes` 的覆盖范围由根目录 `.resourcehashes` 决定（`dir/` 递归目录、`path/file` 单文件、`!path` 排除、最后命中规则生效）；修改 `.resourcehashes` 属于资源契约变化，必须 bump `version`。
 - 仅改动资源无关内容（`docs/`、`scripts/`、`.github/`、`AGENTS.md`、`README.md`、`CHANGELOG.md`）的 PR，`Resource Version Check` 会自动跳过，无需 bump；未列出的路径默认视为资源相关。
 - 首次迁移允许 base 缺少 `version`，且 head 必须为 `1`；之后文件永久存在。资源相关 PR 的 `Resource Version Check` 必须通过。
 
@@ -125,7 +127,7 @@ print(len(s.wiki_assets), s.wiki_asset('贝蕾妮卡'))
 
 - 新增 alias 键时，确认它不在 `alias/*.json` 造成歧义（与现有键冲突）。
 - 修改兑换码后，用编辑器 schema + 语义规则（code 唯一、时间有序）校验。
-- 修改 `videos/login/background.mp4` 时必须通过 `scripts/prepare_login_video.py` 的 Fast Start 与 H.264 SHA-256 校验，并更新 `resource_version`。
+- 修改 `videos/login/background.mp4` 时必须通过 `scripts/prepare_login_video.py` 的 Fast Start 与 H.264 SHA-256 校验，并 bump 根目录 `version`。
 
 ## 6. 禁令（红线）
 
@@ -144,7 +146,7 @@ print(len(s.wiki_assets), s.wiki_asset('贝蕾妮卡'))
 | 新角色头像/立绘/武器图 | 跑 sync_dna_resources.py（3.1），PR 提交新增文件 |
 | 攻略缺某角色 | 跑 sync_bili_guide.py（B站作者合集）→ 第 5 节验证 → PR |
 | 图鉴缺某角色/武器 | 先用 `/forum/wiki/condition` 找 categorize id → `/forum/wiki/list` 找 `wikiId` → 抓 `.pec-right` 长图归一到 2460 宽 webp（docs/sync.md B-wiki） → 第 5 节验证 → PR |
-| 更新登录背景视频 | 跑 `scripts/prepare_login_video.py <源MP4>` → 更新 `resource_version` → 按 `docs/login-video.md` 验证 → PR |
+| 更新登录背景视频 | 跑 `scripts/prepare_login_video.py <源MP4>` → bump `version` → 按 `docs/login-video.md` 验证 → PR |
 | 兑换码更新 | 只改 data/redeem_codes.json，遵守 schema/语义，走 PR |
 | 角色别名/武器别名 | 改 alias/*.json，避免歧义，走 PR |
 | 想加新资源类型 | 先查插件消费方是否支持该路径，否则不做 |

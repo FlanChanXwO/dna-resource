@@ -85,15 +85,9 @@ moov offset < mdat offset
 
 ### 4. 更新资源版本
 
-视频替换后同步修改 `resource_manifest.json` 中的 `resource_version`，让插件资源状态和快照语义能够明确区分新旧素材。
+视频替换后只需 bump 根目录 `version` 文件（正整数，严格大于当前值）。合并后 `Resource Manifest Sync` workflow 会自动更新 `resource_manifest.json` 的 `resource_version` 与 `file_hashes`，让插件资源状态和快照语义能够明确区分新旧素材。
 
-例如：
-
-```json
-"resource_version": "login-media-v6-2026-09-12"
-```
-
-版本名只需要保持可读、唯一，并能体现登录媒体发生了变化；不要复用旧版本号。
+`resource_manifest.json` 是自动生成产物，禁止手工编辑。
 
 ### 5. 提交前确认 diff
 
@@ -108,7 +102,7 @@ git diff --stat
 
 ```text
 videos/login/background.mp4
-resource_manifest.json
+version
 ```
 
 如果这次同时调整维护脚本或说明文档，再额外出现对应的 `scripts/` / `docs/` 文件即可。
