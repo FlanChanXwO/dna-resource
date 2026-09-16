@@ -46,6 +46,7 @@ jobs:
 
       # 提交前保护：工作区只允许出现 resource_manifest.json（计划 §13）
       - name: Guard only manifest may be modified
+        id: guard
         if: steps.quick.outputs.skip == 'false'
         run: |
           DIRTY="$(git diff --name-only)"
