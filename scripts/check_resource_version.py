@@ -24,7 +24,7 @@ PATTERN = re.compile(r"^[1-9][0-9]*$")
 # scripts/tests/ 是维护工具自身的测试目录，位于 scripts/ 前缀下，天然豁免
 UNRELATED_PREFIXES = ("docs/", "scripts/", ".github/")
 # 与资源无关的仓库级文件（精确匹配）
-UNRELATED_FILES = {"AGENTS.md", "README.md", "CHANGELOG.md"}
+UNRELATED_FILES = {"AGENTS.md", "README.md", "CHANGELOG.md", ".gitignore"}
 
 MANIFEST = "resource_manifest.json"
 HASH_RULES = ".resourcehashes"

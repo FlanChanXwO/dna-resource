@@ -145,3 +145,11 @@ class TestMaintenanceFiles:
         (tmp_path / "scripts" / "tests" / "test_x.py").write_text("def test_x(): pass\n")
         commit_all(tmp_path)
         run_check("main", "pr", tmp_path)  # 不抛错即通过
+
+    def test_gitignore_is_maintenance_exempt(self, tmp_path):
+        # .gitignore 是仓库维护文件：修改无需 bump version
+        make_repo(tmp_path)
+        git(tmp_path, "checkout", "-qb", "pr")
+        (tmp_path / ".gitignore").write_text("__pycache__/\n")
+        commit_all(tmp_path)
+        run_check("main", "pr", tmp_path)  # 不抛错即通过
