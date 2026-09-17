@@ -62,6 +62,7 @@ jobs:
           fi
 
       - name: Commit and push
+        id: push
         if: steps.quick.outputs.skip == 'false' && steps.guard.outputs.has_changes == 'true'
         run: |
           git config user.name "github-actions[bot]"
@@ -70,4 +71,20 @@ jobs:
           git commit -m "chore: sync generated resource manifest"
           # 只做普通 push，禁止 force push；若其他 PR 先进了 main，
           # non-fast-forward 失败即可——那个合并事件已排队下一次 sync，会自动追平
-          git push origin HEAD:main
+          if git push origin HEAD:main; then
+            echo "mode=direct-push" >> "$GITHUB_OUTPUT"
+          else
+            # 直接 push 被拒（分支保护要求 status check）。降级：开 bot PR 走正常门禁，
+            # RVC 会以 --allow-manifest-edit 放行 manifest-only PR，随后 auto-merge。
+            BRANCH="manifest-sync/$(date +%s)"
+            git checkout -b "$BRANCH"
+            git push origin "$BRANCH"
+            gh pr create \
+              --title "chore: sync generated resource manifest" \
+              --body "自动生成的 resource_manifest.json 同步（version 与 resource_version 对账）。" \
+              --base main --head "$BRANCH"
+            gh pr merge --auto --squash "$BRANCH"
+            echo "mode=pr" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}

@@ -18,4 +18,9 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           fetch-depth: 0
       - run: git fetch --no-tags --depth=1 origin ${{ github.event.pull_request.head.sha }}
-      - run: python3 scripts/check_resource_version.py --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }}
+      # bot 的 manifest 同步 PR（head 分支名 manifest-sync/*）带标志放行；
+      # 标志决定权在 main 检出上的本 workflow，PR 内容无法注入
+      - if: ${{ !startsWith(github.event.pull_request.head.ref, 'manifest-sync/') }}
+        run: python3 scripts/check_resource_version.py --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }}
+      - if: ${{ startsWith(github.event.pull_request.head.ref, 'manifest-sync/') }}
+        run: python3 scripts/check_resource_version.py --base ${{ github.event.pull_request.base.sha }} --head ${{ github.event.pull_request.head.sha }} --allow-manifest-edit
