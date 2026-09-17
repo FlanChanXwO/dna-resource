@@ -2,18 +2,18 @@
 """resource_manifest.json 自动生成器（PR 合并后由 CI 运行）。
 
 职责（见实施计划 §5-§8）：
-1. 读取 version 与现有 resource_manifest.json；
-2. 读取 .resourcehashes；
-3. 用 `git log -1 -- resource_manifest.json` 找 checkpoint；
-4. 处理 `checkpoint..HEAD` 的文件变化；
-5. 普通增量：只处理 diff 文件，不做目录扫描；
-6. 规则变更（.resourcehashes 在 diff 中）：额外做受管范围 reconciliation，
-   只枚举规则允许的范围，未变化的文件复用旧 hash；
-7. 设置 resource_version = version；
-8. 稳定序列化（字典序、2 空格、ensure_ascii=False、结尾换行）。
+1. 从 resource_contract.json 生成 format_version / required_dirs / required_files；
+2. 从 version 生成 resource_version；
+3. 从 .resourcehashes 的包含/排除规则和实际资源文件生成 file_hashes；
+4. 默认完整重建 manifest，不依赖旧 manifest 内容；
+5. `--incremental` 仅供 CI 优化：用旧 manifest 作为 hash 缓存，按 Git diff 更新，
+   但输出必须与完整重建字节一致；
+6. 稳定序列化（字典序、2 空格、ensure_ascii=False、结尾换行）。
 
 约束：
-- 只允许修改 manifest 的 resource_version 与 file_hashes；
+- manifest 没有人工维护字段：所有内容必须能从其他事实源完整重建；
+- manifest 契约字段只从 resource_contract.json 读取，不在脚本中硬编码；
+- file_hashes 的白名单/黑名单只从 .resourcehashes 读取；
 - 禁止跟随符号链接；禁止无依据的限制或兜底——错误显式暴露。
 """
 from __future__ import annotations
@@ -27,11 +27,11 @@ from pathlib import Path
 from hash_rules import HashRuleSet
 
 MANIFEST_PATH = "resource_manifest.json"
+CONTRACT_PATH = "resource_contract.json"
 RULES_PATH = ".resourcehashes"
 VERSION_PATH = "version"
 
-# manifest 的契约字段：生成器绝不触碰
-PRESERVED_KEYS = ("format_version", "required_dirs")
+CONTRACT_KEYS = ("format_version", "required_dirs", "required_files")
 
 
 class ManifestGenError(Exception):
@@ -90,6 +90,32 @@ def read_version(root: Path) -> str:
     return value
 
 
+def read_contract(root: Path) -> dict:
+    """读取由维护者显式管理的资源契约。"""
+
+    try:
+        contract = json.loads((root / CONTRACT_PATH).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ManifestGenError(f"invalid {CONTRACT_PATH}: {exc}") from exc
+    if not isinstance(contract, dict):
+        raise ManifestGenError(f"invalid {CONTRACT_PATH}: root must be an object")
+    if set(contract) != set(CONTRACT_KEYS):
+        raise ManifestGenError(
+            f"invalid {CONTRACT_PATH}: expected keys {list(CONTRACT_KEYS)!r}"
+        )
+    if contract["format_version"] not in {1, 2}:
+        raise ManifestGenError(f"invalid {CONTRACT_PATH}: unsupported format_version")
+    if not isinstance(contract["required_dirs"], list) or not all(
+        isinstance(item, str) for item in contract["required_dirs"]
+    ):
+        raise ManifestGenError(f"invalid {CONTRACT_PATH}: required_dirs must be strings")
+    if not isinstance(contract["required_files"], list) or not all(
+        isinstance(item, str) for item in contract["required_files"]
+    ):
+        raise ManifestGenError(f"invalid {CONTRACT_PATH}: required_files must be strings")
+    return contract
+
+
 # ---------- 哈希计算 ----------
 
 
@@ -106,6 +132,36 @@ def sha256_file(path: Path) -> str:
 
 def hash_repo_file(root: Path, rel_path: str) -> str:
     return sha256_file(root / rel_path)
+
+
+def managed_hash_paths(root: Path, rules: HashRuleSet) -> list[str]:
+    """按 .resourcehashes 枚举当前需要进入 file_hashes 的文件。"""
+
+    current: set[str] = set()
+    for directory in rules.scan_dirs():
+        base = root / directory
+        if base.is_dir():
+            for path in base.rglob("*"):
+                if path.is_file() or path.is_symlink():
+                    relative = path.relative_to(root).as_posix()
+                    if path.is_symlink():
+                        raise ManifestGenError(f"symlink not allowed: {relative}")
+                    if rules.matches(relative):
+                        current.add(relative)
+    for relative in rules.scan_files():
+        path = root / relative
+        if path.is_file() and rules.matches(relative):
+            current.add(relative)
+    return sorted(current)
+
+
+def build_file_hashes(root: Path, rules: HashRuleSet) -> dict[str, str]:
+    """完全由规则文件与当前资源内容生成 file_hashes。"""
+
+    return {
+        relative: hash_repo_file(root, relative)
+        for relative in managed_hash_paths(root, rules)
+    }
 
 
 # ---------- 普通增量 ----------
@@ -187,20 +243,7 @@ def reconcile_scope(
             changed.add(old_path)
 
     # 1) 枚举当前规则下的受管文件集合（只扫 include 目录与 include 单文件）
-    current: set[str] = set()
-    for d in rules.scan_dirs():
-        base = root / d
-        if base.is_dir():
-            for p in base.rglob("*"):
-                if p.is_file() or p.is_symlink():
-                    rel = p.relative_to(root).as_posix()
-                    if p.is_symlink():
-                        raise ManifestGenError(f"symlink not allowed: {rel}")
-                    if rules.matches(rel):
-                        current.add(rel)
-    for f in rules.scan_files():
-        if (root / f).is_file() and rules.matches(f):
-            current.add(f)
+    current = set(managed_hash_paths(root, rules))
 
     # 2) 清理退出范围或已删除的 key
     for key in list(hashes):
@@ -229,7 +272,13 @@ def serialize(manifest: dict) -> str:
     遇到未知顶层键显式失败：新增顶层字段属于资源契约迁移，
     必须同步修改生成器，不允许静默透传。
     """
-    canonical_order = ("format_version", "required_dirs", "resource_version", "file_hashes")
+    canonical_order = (
+        "format_version",
+        "required_dirs",
+        "required_files",
+        "resource_version",
+        "file_hashes",
+    )
     unknown = set(manifest) - set(canonical_order)
     if unknown:
         raise ManifestGenError(
@@ -239,6 +288,8 @@ def serialize(manifest: dict) -> str:
     ordered: dict = {}
     for key in canonical_order:
         if key not in manifest:
+            if key == "required_files" and manifest.get("format_version") == 1:
+                continue
             raise ManifestGenError(f"manifest missing required key {key!r}")
         value = manifest[key]
         ordered[key] = dict(sorted(value.items())) if key == "file_hashes" else value
@@ -246,17 +297,33 @@ def serialize(manifest: dict) -> str:
 
 
 def generate(root: Path | None = None) -> str:
-    """主入口：返回序列化后的 manifest 文本。"""
+    """仅凭维护侧事实源与当前资源内容完整生成 manifest。"""
     if root is None:
         root = Path(".")
     version = read_version(root)
-    manifest = json.loads((root / MANIFEST_PATH).read_text(encoding="utf-8"))
+    manifest = read_contract(root)
     rules_text = (root / RULES_PATH).read_text(encoding="utf-8")
     rules = HashRuleSet.parse(rules_text)
 
+    manifest["file_hashes"] = build_file_hashes(root, rules)
+    set_resource_version(manifest, version)
+    return serialize(manifest)
+
+
+def generate_incremental(root: Path | None = None) -> str:
+    """基于已生成 manifest 增量更新；仅作为 CI 性能优化。"""
+
+    if root is None:
+        root = Path(".")
+    version = read_version(root)
+    manifest = read_contract(root)
+    rules_text = (root / RULES_PATH).read_text(encoding="utf-8")
+    rules = HashRuleSet.parse(rules_text)
+    current_manifest = json.loads((root / MANIFEST_PATH).read_text(encoding="utf-8"))
+
     checkpoint = find_checkpoint(cwd=root)
     changes = diff_name_status(checkpoint, "HEAD", cwd=root)
-    hashes = dict(manifest.get("file_hashes", {}))
+    hashes = dict(current_manifest.get("file_hashes", {}))
     apply_changes(hashes, rules, changes, version=version, root=root)
 
     manifest["file_hashes"] = hashes
@@ -265,9 +332,21 @@ def generate(root: Path | None = None) -> str:
 
 
 def main() -> int:
-    root = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
+    args = sys.argv[1:]
+    incremental = False
+    if args and args[0] == "--incremental":
+        incremental = True
+        args = args[1:]
+    if len(args) > 1:
+        print(
+            "usage: generate_resource_manifest.py [--incremental] [root]",
+            file=sys.stderr,
+        )
+        return 2
+    root = Path(args[0]) if args else Path(".")
     try:
-        (root / MANIFEST_PATH).write_text(generate(root), encoding="utf-8")
+        generator = generate_incremental if incremental else generate
+        (root / MANIFEST_PATH).write_text(generator(root), encoding="utf-8")
     except ManifestGenError as exc:
         print(f"manifest generation failed:\n{exc}", file=sys.stderr)
         return 1

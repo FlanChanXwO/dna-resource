@@ -13,9 +13,15 @@
 - 默认简体中文；代码标识符/文件名保持英文或游戏原名（中文角色名文件按现有命名沿用）。
 - 注释/文档默认中文；仓库对外 README 目前为英文，新增 docs 可中文，保持一致即可。
 
-## 2. 目录契约（manifest 约束）
+## 2. 资源契约（manifest 约束）
 
-`resource_manifest.json` 的 `required_dirs` 声明运行期布局，**新增运行期资源必须落在这些目录或其既有子结构内**：
+`resource_contract.json` 是维护侧资源契约事实源，`resource_manifest.json` 是合并后由 workflow 生成的运行期投影：
+
+- `required_dirs` 只声明必须存在的运行期目录布局；
+- `required_files` 明确声明缺失时必须阻断 generation 发布的文件；
+- `file_hashes` 只声明完整性校验。format v2 起，某文件仅出现在 `file_hashes` 中并不代表它是必需资源；未列入 `required_files` 的资源允许由插件按既有降级策略处理。
+
+新增运行期资源必须落在 `required_dirs` 或其既有子结构内：
 
 ```
 fonts/            # 渲染字体（dna_fonts.ttf 等）
@@ -34,7 +40,8 @@ textures/{ann,common,detail,help,mh,role,sign,stamina}/
 ```
 
 - 命名规则由插件消费方决定（见上括号），**不得自创路径模式**；不确定先查插件读取代码。
-- `resource_manifest.json` 不含 `images/weapon` 等二级声明属正常——校验只要求列出的目录存在；images 下子目录由渲染器约定。
+- `resource_manifest.json` 不含 `images/weapon` 等二级声明属正常——目录校验只要求列出的目录存在；images 下子目录由渲染器约定。
+- 新增“缺失即不可发布”的文件时，必须修改 `resource_contract.json.required_files`；不要只依赖插件代码中的文件读取失败来隐式表达必要性。
 - 删除/移动文件同理：只能在上述类型化路径内做，且必须评估插件 `EncyclopediaResourceStore`/`ResourceMap` 索引是否随之失效。
 - `docs/`、`scripts/`、`AGENTS.md`、`README.md` 等仓库维护文件不属于运行期资源目录；不要把它们加入 `required_dirs`。
 
@@ -87,7 +94,8 @@ python3 scripts/prepare_login_video.py /path/to/source.mp4
 
 - 根目录 `version` 只允许正整数（`^[1-9][0-9]*$`）；PR 改动了任何资源相关内容（资源目录、`.resourcehashes`、`version` 等）时，必须改为严格大于 base 的版本。
 - 资源、别名、兑换码、字体、纹理、`.resourcehashes` 改动一律 bump `version`。禁止复用、降低、前导零或描述性版本号。
-- **`resource_manifest.json` 是合并后自动生成的产物，禁止在 PR 中手工编辑**；PR 中出现对该文件的任何修改会直接导致 `Resource Version Check` 失败。合并后由 `Resource Manifest Sync` workflow（`github-actions[bot]`）自动更新 `resource_version` 与 `file_hashes`。
+- **`resource_manifest.json` 是合并后自动生成的产物，禁止在 PR 中手工编辑**；PR 中出现对该文件的任何修改会直接导致 `Resource Version Check` 失败。合并后由 `Resource Manifest Sync` workflow（`github-actions[bot]`）从 `resource_contract.json` 投影契约字段，并自动更新 `resource_version` 与 `file_hashes`。
+- `resource_contract.json` 只在资源契约本身发生变化时维护；普通新增、删除、更新资源仍只需要改资源文件并 bump `version`。
 - `file_hashes` 的覆盖范围由根目录 `.resourcehashes` 决定（`dir/` 递归目录、`path/file` 单文件、`!path` 排除、最后命中规则生效）；修改 `.resourcehashes` 属于资源契约变化，必须 bump `version`。
 - 仅改动资源无关内容（`docs/`、`scripts/`、`.github/`、`AGENTS.md`、`README.md`、`CHANGELOG.md`）的 PR，`Resource Version Check` 会自动跳过，无需 bump；未列出的路径默认视为资源相关。
 - 首次迁移允许 base 缺少 `version`，且 head 必须为 `1`；之后文件永久存在。资源相关 PR 的 `Resource Version Check` 必须通过。
