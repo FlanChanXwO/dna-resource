@@ -7,6 +7,8 @@ on:
       - closed
 permissions:
   contents: write
+  # 直接 push 被分支保护拒绝时，降级为 bot PR + auto-merge 需要 PR 写权限
+  pull-requests: write
 concurrency:
   # 串行处理合并事件：过期 run 会排队而非互相覆盖
   group: resource-manifest-sync-main
