@@ -1,5 +1,5 @@
 {
-  "format_version": 1,
+  "format_version": 2,
   "required_dirs": [
     "fonts",
     "images",
@@ -16,7 +16,13 @@
     "calendar",
     "textures"
   ],
-  "resource_version": "9",
+  "required_files": [
+    "alias/char_alias.json",
+    "alias/weapon_alias.json",
+    "data/redeem_codes.json",
+    "schemas/redeem-codes.v1.schema.json"
+  ],
+  "resource_version": "10",
   "file_hashes": {
     "calendar/banner_bg.webp": "43487d4b1941f1802803d745ff963102947ac71777be28a6f3fb9e6b3e6d1ba6",
     "calendar/banner_frame.png": "677eb3d23cae8b3cca2cef3c2b093711edf2d2778f5492111f52f4ea7961fa42",
