@@ -33,34 +33,21 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      # 快速判定（O(1)）：version 与 manifest.resource_version 相等则无事可做。
-      # docs-only PR 在这里直接退出；同时兜住上一次 sync 失败后的追平场景。
-      - name: Quick check version vs resource_version
-        id: quick
-        run: |
-          VERSION="$(cat version)"
-          RESOURCE_VERSION="$(python3 -c "import json;print(json.load(open('resource_manifest.json'))['resource_version'])")"
-          echo "version=${VERSION} resource_version=${RESOURCE_VERSION}"
-          if [ "${VERSION}" = "${RESOURCE_VERSION}" ]; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "manifest already in sync; nothing to do"
-          else
-            echo "skip=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Generate manifest
-        if: steps.quick.outputs.skip == 'false'
-        run: python3 scripts/generate_resource_manifest.py --incremental .
+        run: >-
+          python3 scripts/generate_resource_manifest.py
+          --incremental
+          --version-file version
+          --manifest-file resource_manifest.json
+          .
 
       # 提交前保护：工作区只允许出现 resource_manifest.json（计划 §13）
       - name: Guard only manifest may be modified
         id: guard
-        if: steps.quick.outputs.skip == 'false'
         run: |
           DIRTY="$(git diff --name-only)"
           echo "workspace changes: ${DIRTY}"
           if [ -z "${DIRTY}" ]; then
-            echo "no changes produced; manifest already up to date"
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           elif [ "${DIRTY}" = "resource_manifest.json" ]; then
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
@@ -71,7 +58,7 @@ jobs:
 
       - name: Commit
         id: commit
-        if: steps.quick.outputs.skip == 'false' && steps.guard.outputs.has_changes == 'true'
+        if: steps.guard.outputs.has_changes == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -90,7 +77,12 @@ jobs:
           # commit status 只能挂在远端已知的 commit 上：先 push 到临时分支（同 SHA），
           # 挂 status 后再 push main（同 SHA fast-forward，protection 看到 required check success 放行）
           git push origin HEAD:"$TMP_BRANCH"
-          if python3 scripts/check_resource_version.py --allow-manifest-edit --base HEAD~1 --head "$SHA"; then
+          if python3 scripts/check_resource_version.py \
+            --version-file version \
+            --manifest-file resource_manifest.json \
+            --allow-manifest-edit \
+            --base HEAD~1 \
+            --head "$SHA"; then
             STATUS="success"
           else
             STATUS="failure"

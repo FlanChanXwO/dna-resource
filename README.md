@@ -44,9 +44,11 @@
 
 ## 版本规范与自动 manifest
 
-根目录 `version` 只能包含正整数。改动了资源相关内容（资源目录、`.resourceignore`、`version` 等）的 PR 都必须将版本提高到严格大于 base 的数字；仅改动 `docs/`、`scripts/`、`.github/` 等资源无关内容的 PR 会自动跳过该检查。`Resource Version Check` 会校验是否豁免、格式和递增关系。
+根目录 `version` 只能包含正整数。`.resourceignore` 是唯一人工维护的路径策略：普通 `path`/`dir/` 规则纳入 `file_hashes`，`!path`/`!dir/` 显式排除，`:path`/`:dir/` 只声明 required。除 `.resourceignore` 自身外，所有 Git tracked 文件都必须被 include 或 exclude 规则覆盖。
 
-**`resource_manifest.json` 是完全生成的产物，禁止在 PR 中手工编辑任何字段**。它可以从 `version`、`.resourceignore` 与实际资源文件完整重建：普通 `path`/`dir/` 规则纳入 `file_hashes`，`!path`/`!dir/` 排除，`:path` 声明必需文件，`:dir/` 声明必需目录。`:` 只声明存在性，不隐式纳入哈希。PR 合并后，`Resource Manifest Sync` workflow（`github-actions[bot]`）生成并提交 manifest；workflow 使用增量模式减少重复哈希，但其输出必须与完整重建一致。`.resourceignore` 是唯一人工维护的资源策略文件，修改它同样需要 bump `version`。
+只有最终分类为 include 的资源发生变化时才要求提升 `version`；rules-only 或 exclude-only 变化不要求 bump。`docs/`、`scripts/`、`.github/` 等维护内容之所以免 bump，是因为 `.resourceignore` 显式排除了它们，而不是 checker 内置名单。
+
+**`resource_manifest.json` 是完全生成的产物，禁止在 PR 中手工编辑任何字段**。PR 合并后，`Resource Manifest Sync` workflow（`github-actions[bot]`）都会运行一次增量生成；若结果没有变化则自然结束。workflow 通过 CLI 显式传入版本文件和 manifest 路径，增量输出必须与完整重建一致。
 
 ## 资源来源与维护方式
 

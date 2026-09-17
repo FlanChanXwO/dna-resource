@@ -18,17 +18,15 @@
 """
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import subprocess
 import sys
 from pathlib import Path
 
-from hash_rules import HashRuleSet
+from hash_rules import HashRuleSet, RULES_PATH
 
-MANIFEST_PATH = "resource_manifest.json"
-RULES_PATH = ".resourceignore"
-VERSION_PATH = "version"
 FORMAT_VERSION = 2
 
 
@@ -48,15 +46,15 @@ def git_output(*args: str, cwd: Path | None = None) -> str:
     return result.stdout
 
 
-def find_checkpoint(cwd: Path | None = None) -> str:
+def find_checkpoint(manifest_file: str, cwd: Path | None = None) -> str:
     """manifest 最后一次被修改的提交。
 
     依赖前提：新规则禁止人工修改 manifest，该提交之后的变化都应被追平。
     """
-    out = git_output("log", "-1", "--format=%H", "--", MANIFEST_PATH, cwd=cwd).strip()
+    out = git_output("log", "-1", "--format=%H", "--", manifest_file, cwd=cwd).strip()
     if not out:
         raise ManifestGenError(
-            f"no commit ever touched {MANIFEST_PATH}; cannot determine checkpoint"
+            f"no commit ever touched {manifest_file}; cannot determine checkpoint"
         )
     return out
 
@@ -64,27 +62,51 @@ def find_checkpoint(cwd: Path | None = None) -> str:
 def diff_name_status(base: str, head: str, cwd: Path | None = None) -> list[tuple[str, str, str]]:
     """返回 [(status, path, new_path|'')]；R 状态附带新路径。"""
     out = git_output(
-        "diff", "--name-status", "--find-renames",
+        "diff", "--name-status", "-z", "--find-renames",
         base, head, cwd=cwd,
     )
     changes: list[tuple[str, str, str]] = []
-    for line in out.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split("\t")
-        status = parts[0]
+    parts = [part for part in out.split("\0") if part]
+    index = 0
+    while index < len(parts):
+        status = parts[index]
+        index += 1
         if status.startswith("R"):
-            changes.append((status, parts[1], parts[2]))
+            if index + 1 >= len(parts):
+                raise ManifestGenError(f"invalid rename diff entry for status {status!r}")
+            changes.append((status, parts[index], parts[index + 1]))
+            index += 2
         else:
-            changes.append((status, parts[-1], ""))
+            if index >= len(parts):
+                raise ManifestGenError(f"invalid diff entry for status {status!r}")
+            changes.append((status, parts[index], ""))
+            index += 1
     return changes
 
 
-def read_version(root: Path) -> str:
-    raw = (root / VERSION_PATH).read_text(encoding="utf-8")
+def tracked_files(root: Path) -> list[str]:
+    out = git_output("ls-files", "-z", cwd=root)
+    return [path for path in out.split("\0") if path]
+
+
+def ensure_tracked_coverage(paths: list[str], rules: HashRuleSet) -> None:
+    undeclared = [
+        path
+        for path in paths
+        if path != RULES_PATH and not rules.is_declared(path)
+    ]
+    if undeclared:
+        raise ManifestGenError(
+            "undeclared tracked paths:\n"
+            + "\n".join(f"- {path}" for path in undeclared)
+        )
+
+
+def read_version(root: Path, version_file: str) -> str:
+    raw = (root / version_file).read_text(encoding="utf-8")
     value = raw.strip()
     if not value.isdigit() or int(value) <= 0 or value.startswith("0"):
-        raise ManifestGenError(f"invalid {VERSION_PATH}: {value!r}")
+        raise ManifestGenError(f"invalid {version_file}: {value!r}")
     return value
 
 
@@ -106,33 +128,27 @@ def hash_repo_file(root: Path, rel_path: str) -> str:
     return sha256_file(root / rel_path)
 
 
-def managed_hash_paths(root: Path, rules: HashRuleSet) -> list[str]:
-    """按 .resourceignore 枚举当前需要进入 file_hashes 的文件。"""
+def managed_hash_paths(
+    root: Path,
+    rules: HashRuleSet,
+    tracked: list[str],
+) -> list[str]:
+    """从 Git tracked files 中筛出需要进入 file_hashes 的路径。"""
 
-    current: set[str] = set()
-    for directory in rules.scan_dirs():
-        base = root / directory
-        if base.is_dir():
-            for path in base.rglob("*"):
-                if path.is_file() or path.is_symlink():
-                    relative = path.relative_to(root).as_posix()
-                    if path.is_symlink():
-                        raise ManifestGenError(f"symlink not allowed: {relative}")
-                    if rules.matches(relative):
-                        current.add(relative)
-    for relative in rules.scan_files():
-        path = root / relative
-        if path.is_file() and rules.matches(relative):
-            current.add(relative)
-    return sorted(current)
+    ensure_tracked_coverage(tracked, rules)
+    return sorted(path for path in tracked if rules.matches(path))
 
 
-def build_file_hashes(root: Path, rules: HashRuleSet) -> dict[str, str]:
+def build_file_hashes(
+    root: Path,
+    rules: HashRuleSet,
+    tracked: list[str],
+) -> dict[str, str]:
     """完全由规则文件与当前资源内容生成 file_hashes。"""
 
     return {
         relative: hash_repo_file(root, relative)
-        for relative in managed_hash_paths(root, rules)
+        for relative in managed_hash_paths(root, rules, tracked)
     }
 
 
@@ -214,8 +230,9 @@ def reconcile_scope(
         elif status in ("A", "M"):
             changed.add(old_path)
 
-    # 1) 枚举当前规则下的受管文件集合（只扫 include 目录与 include 单文件）
-    current = set(managed_hash_paths(root, rules))
+    # 1) 从当前 Git tracked files 枚举最新受管集合，同时执行 coverage 校验。
+    tracked = tracked_files(root)
+    current = set(managed_hash_paths(root, rules, tracked))
 
     # 2) 清理退出范围或已删除的 key
     for key in list(hashes):
@@ -268,40 +285,54 @@ def serialize(manifest: dict) -> str:
     return json.dumps(ordered, ensure_ascii=False, indent=2) + "\n"
 
 
-def generate(root: Path | None = None) -> str:
+def generate(
+    root: Path | None = None,
+    *,
+    version_file: str,
+    manifest_file: str,
+) -> str:
     """仅凭维护侧事实源与当前资源内容完整生成 manifest。"""
     if root is None:
         root = Path(".")
-    version = read_version(root)
+    version = read_version(root, version_file)
     rules_text = (root / RULES_PATH).read_text(encoding="utf-8")
     rules = HashRuleSet.parse(rules_text)
+    tracked = tracked_files(root)
+    ensure_tracked_coverage(tracked, rules)
     manifest = {
         "format_version": FORMAT_VERSION,
         "required_dirs": rules.required_dirs(),
         "required_files": rules.required_files(),
     }
 
-    manifest["file_hashes"] = build_file_hashes(root, rules)
+    manifest["file_hashes"] = build_file_hashes(root, rules, tracked)
     set_resource_version(manifest, version)
     return serialize(manifest)
 
 
-def generate_incremental(root: Path | None = None) -> str:
+def generate_incremental(
+    root: Path | None = None,
+    *,
+    version_file: str,
+    manifest_file: str,
+) -> str:
     """基于已生成 manifest 增量更新；仅作为 CI 性能优化。"""
 
     if root is None:
         root = Path(".")
-    version = read_version(root)
+    version = read_version(root, version_file)
     rules_text = (root / RULES_PATH).read_text(encoding="utf-8")
     rules = HashRuleSet.parse(rules_text)
+    tracked = tracked_files(root)
+    ensure_tracked_coverage(tracked, rules)
     manifest = {
         "format_version": FORMAT_VERSION,
         "required_dirs": rules.required_dirs(),
         "required_files": rules.required_files(),
     }
-    current_manifest = json.loads((root / MANIFEST_PATH).read_text(encoding="utf-8"))
+    current_manifest = json.loads((root / manifest_file).read_text(encoding="utf-8"))
 
-    checkpoint = find_checkpoint(cwd=root)
+    checkpoint = find_checkpoint(manifest_file, cwd=root)
     changes = diff_name_status(checkpoint, "HEAD", cwd=root)
     hashes = dict(current_manifest.get("file_hashes", {}))
     apply_changes(hashes, rules, changes, version=version, root=root)
@@ -312,21 +343,21 @@ def generate_incremental(root: Path | None = None) -> str:
 
 
 def main() -> int:
-    args = sys.argv[1:]
-    incremental = False
-    if args and args[0] == "--incremental":
-        incremental = True
-        args = args[1:]
-    if len(args) > 1:
-        print(
-            "usage: generate_resource_manifest.py [--incremental] [root]",
-            file=sys.stderr,
-        )
-        return 2
-    root = Path(args[0]) if args else Path(".")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--incremental", action="store_true")
+    parser.add_argument("--version-file", required=True)
+    parser.add_argument("--manifest-file", required=True)
+    parser.add_argument("root", nargs="?", default=".")
+    args = parser.parse_args()
+    root = Path(args.root)
     try:
-        generator = generate_incremental if incremental else generate
-        (root / MANIFEST_PATH).write_text(generator(root), encoding="utf-8")
+        generator = generate_incremental if args.incremental else generate
+        output = generator(
+            root,
+            version_file=args.version_file,
+            manifest_file=args.manifest_file,
+        )
+        (root / args.manifest_file).write_text(output, encoding="utf-8")
     except ManifestGenError as exc:
         print(f"manifest generation failed:\n{exc}", file=sys.stderr)
         return 1

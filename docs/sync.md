@@ -4,9 +4,31 @@
 
 ## 版本（资源相关 PR 必须）
 
-根目录 `version` 只能是正整数。任何资源、别名、兑换码、字体、纹理或 `.resourceignore` 变更都必须提高版本（严格大于 base）；仅改动 `docs/`、`scripts/`、`.github/` 等资源无关内容时检查自动跳过，无需 bump。提交前运行 `python3 scripts/check_resource_version.py --base <base-ref> --head <head-ref>`。首次迁移的 head 必须为 `1`；之后不得删除 `version`。
+根目录 `version` 只能是正整数。只有 `.resourceignore` 最终分类为 include 的 tracked 内容发生变化时才要求提高版本（严格大于 base）；exclude 范围和 `.resourceignore` 自身变化不要求 bump。`docs/`、`scripts/`、`.github/` 等维护内容通过 `.resourceignore` 的 `!` 规则显式排除，不依赖 checker 内置白名单。
 
-`resource_manifest.json` 是合并后自动生成的产物，禁止在 PR 中手工编辑：PR 合并后由 `Resource Manifest Sync` workflow 从 `version`、`.resourceignore` 与实际资源文件自动生成。`.resourceignore` 中普通 `path`/`dir/` 规则纳入哈希，`!path`/`!dir/` 排除，`:path`/`:dir/` 声明必需文件/目录；修改它同样必须 bump `version`。
+`.resourceignore` 是唯一人工维护的路径策略。普通 `path`/`dir/` 规则纳入哈希，`!path`/`!dir/` 排除，`:path`/`:dir/` 只声明必需文件/目录；除 `.resourceignore` 自身外，所有 Git tracked 文件都必须被 include 或 exclude 显式分类。
+
+提交前 checker 由 workflow 显式传入控制文件路径：
+
+```bash
+python3 scripts/check_resource_version.py \
+  --version-file version \
+  --manifest-file resource_manifest.json \
+  --base <base-ref> \
+  --head <head-ref>
+```
+
+`resource_manifest.json` 是合并后自动生成的产物，禁止在 PR 中手工编辑。每个真正合并进 `main` 的 PR 都会运行增量生成；若 manifest 没有变化则自然结束：
+
+```bash
+python3 scripts/generate_resource_manifest.py \
+  --incremental \
+  --version-file version \
+  --manifest-file resource_manifest.json \
+  .
+```
+
+Python 脚本不固定 `version` / `resource_manifest.json` 的仓库路径；这些路径由 workflow CLI 参数提供。首次迁移的版本仍为 `1`，之后不得删除版本文件。
 
 ## 资源分类速览
 
