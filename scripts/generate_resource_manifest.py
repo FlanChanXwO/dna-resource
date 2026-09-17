@@ -2,9 +2,9 @@
 """resource_manifest.json 自动生成器（PR 合并后由 CI 运行）。
 
 职责（见实施计划 §5-§8）：
-1. 从 resource_contract.json 生成 format_version / required_dirs / required_files；
+1. 从 .resourceignore 生成 required_dirs / required_files；
 2. 从 version 生成 resource_version；
-3. 从 .resourcehashes 的包含/排除规则和实际资源文件生成 file_hashes；
+3. 从 .resourceignore 的包含/排除规则和实际资源文件生成 file_hashes；
 4. 默认完整重建 manifest，不依赖旧 manifest 内容；
 5. `--incremental` 仅供 CI 优化：用旧 manifest 作为 hash 缓存，按 Git diff 更新，
    但输出必须与完整重建字节一致；
@@ -12,8 +12,8 @@
 
 约束：
 - manifest 没有人工维护字段：所有内容必须能从其他事实源完整重建；
-- manifest 契约字段只从 resource_contract.json 读取，不在脚本中硬编码；
-- file_hashes 的白名单/黑名单只从 .resourcehashes 读取；
+- format_version 是生成器输出 schema 版本；当前固定为 2；
+- required_dirs / required_files 与 file_hashes 范围都只从 .resourceignore 读取；
 - 禁止跟随符号链接；禁止无依据的限制或兜底——错误显式暴露。
 """
 from __future__ import annotations
@@ -27,11 +27,9 @@ from pathlib import Path
 from hash_rules import HashRuleSet
 
 MANIFEST_PATH = "resource_manifest.json"
-CONTRACT_PATH = "resource_contract.json"
-RULES_PATH = ".resourcehashes"
+RULES_PATH = ".resourceignore"
 VERSION_PATH = "version"
-
-CONTRACT_KEYS = ("format_version", "required_dirs", "required_files")
+FORMAT_VERSION = 2
 
 
 class ManifestGenError(Exception):
@@ -90,32 +88,6 @@ def read_version(root: Path) -> str:
     return value
 
 
-def read_contract(root: Path) -> dict:
-    """读取由维护者显式管理的资源契约。"""
-
-    try:
-        contract = json.loads((root / CONTRACT_PATH).read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ManifestGenError(f"invalid {CONTRACT_PATH}: {exc}") from exc
-    if not isinstance(contract, dict):
-        raise ManifestGenError(f"invalid {CONTRACT_PATH}: root must be an object")
-    if set(contract) != set(CONTRACT_KEYS):
-        raise ManifestGenError(
-            f"invalid {CONTRACT_PATH}: expected keys {list(CONTRACT_KEYS)!r}"
-        )
-    if contract["format_version"] not in {1, 2}:
-        raise ManifestGenError(f"invalid {CONTRACT_PATH}: unsupported format_version")
-    if not isinstance(contract["required_dirs"], list) or not all(
-        isinstance(item, str) for item in contract["required_dirs"]
-    ):
-        raise ManifestGenError(f"invalid {CONTRACT_PATH}: required_dirs must be strings")
-    if not isinstance(contract["required_files"], list) or not all(
-        isinstance(item, str) for item in contract["required_files"]
-    ):
-        raise ManifestGenError(f"invalid {CONTRACT_PATH}: required_files must be strings")
-    return contract
-
-
 # ---------- 哈希计算 ----------
 
 
@@ -135,7 +107,7 @@ def hash_repo_file(root: Path, rel_path: str) -> str:
 
 
 def managed_hash_paths(root: Path, rules: HashRuleSet) -> list[str]:
-    """按 .resourcehashes 枚举当前需要进入 file_hashes 的文件。"""
+    """按 .resourceignore 枚举当前需要进入 file_hashes 的文件。"""
 
     current: set[str] = set()
     for directory in rules.scan_dirs():
@@ -181,7 +153,7 @@ def apply_changes(
 ) -> None:
     """按 `git diff --name-status` 增量调整 hashes（原地修改）。
 
-    若 changes 中包含规则文件（.resourcehashes），委托 reconcile_scope 做
+    若 changes 中包含规则文件（.resourceignore），委托 reconcile_scope 做
     受管范围对账；否则纯增量，不读取任何未变化文件。
     """
     if hash_fn is None:
@@ -301,9 +273,13 @@ def generate(root: Path | None = None) -> str:
     if root is None:
         root = Path(".")
     version = read_version(root)
-    manifest = read_contract(root)
     rules_text = (root / RULES_PATH).read_text(encoding="utf-8")
     rules = HashRuleSet.parse(rules_text)
+    manifest = {
+        "format_version": FORMAT_VERSION,
+        "required_dirs": rules.required_dirs(),
+        "required_files": rules.required_files(),
+    }
 
     manifest["file_hashes"] = build_file_hashes(root, rules)
     set_resource_version(manifest, version)
@@ -316,9 +292,13 @@ def generate_incremental(root: Path | None = None) -> str:
     if root is None:
         root = Path(".")
     version = read_version(root)
-    manifest = read_contract(root)
     rules_text = (root / RULES_PATH).read_text(encoding="utf-8")
     rules = HashRuleSet.parse(rules_text)
+    manifest = {
+        "format_version": FORMAT_VERSION,
+        "required_dirs": rules.required_dirs(),
+        "required_files": rules.required_files(),
+    }
     current_manifest = json.loads((root / MANIFEST_PATH).read_text(encoding="utf-8"))
 
     checkpoint = find_checkpoint(cwd=root)
