@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """HashRuleSet 规则解析与路径匹配测试。
 
-`.resourcehashes` 第一版语法：
+规则语法：
 - 空行忽略，`#` 开头注释；
 - `path/` 递归匹配目录；`path/file.ext` 匹配单文件；
 - `!path` 排除规则；规则按顺序处理，最后一次命中决定结果；
+- `:path` 声明必需文件；`:dir/` 声明必需目录；
 - 不支持通配符（`*` `**` `?` 与字符组）；
 - 所有路径必须为仓库相对 POSIX 路径，非法规则直接抛错。
 """
@@ -39,6 +40,16 @@ class TestParsing:
     def test_trailing_whitespace_is_stripped(self):
         rules = HashRuleSet.parse("fonts/   \n")
         assert rules.lines == ["fonts/"]
+
+    def test_required_paths_are_exposed_without_affecting_hash_matching(self):
+        rules = HashRuleSet.parse(
+            "fonts/\n!fonts/ignored.ttf\n:alias/\n:data/redeem_codes.json\n"
+        )
+
+        assert rules.required_dirs() == ["alias"]
+        assert rules.required_files() == ["data/redeem_codes.json"]
+        assert rules.matches("fonts/a.ttf")
+        assert not rules.matches("alias/char_alias.json")
 
 
 class TestMatching:

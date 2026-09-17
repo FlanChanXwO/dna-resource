@@ -5,7 +5,7 @@
 职责（计划 §9）：
 - 纯维护文件变化（docs/ scripts/ .github/ README/AGENTS/CHANGELOG）：跳过；
 - 资源发生变化：head version 必须 > base version（正整数规则不变）；
-- `.resourcehashes` 变化：视为资源契约变化，必须 bump version，
+- `.resourcehashes` / `.resourceignore` 变化：视为资源契约变化，必须 bump version，
   并用 base 分支（本文件所在检出）的 parser 校验规则语法；
 - PR 修改 resource_manifest.json：直接失败——合并后由 bot 自动生成；
 - 不再校验 PR 内 resource_version == version（那是合并后 sync 的职责）。
@@ -28,6 +28,7 @@ UNRELATED_FILES = {"AGENTS.md", "README.md", "CHANGELOG.md", ".gitignore"}
 
 MANIFEST = "resource_manifest.json"
 HASH_RULES = ".resourcehashes"
+NEXT_HASH_RULES = ".resourceignore"
 
 
 class VersionCheckError(Exception):
@@ -92,7 +93,7 @@ def check(base_ref: str, head_ref: str, cwd: str | None = None, allow_manifest_e
             "do not edit it in pull requests"
         )
 
-    rules_changed = HASH_RULES in files
+    rules_changed = HASH_RULES in files or NEXT_HASH_RULES in files
     if not has_resource_changes(files):
         print("Resource Version Check: skipped (no resource-related changes)")
         return
@@ -127,10 +128,13 @@ def check(base_ref: str, head_ref: str, cwd: str | None = None, allow_manifest_e
 
     # 规则语法用 base 检出中的 parser 校验（PR 无法通过携带恶意 parser 绕过）
     if rules_changed:
-        rules_text = read_file(head_ref, HASH_RULES, cwd=cwd)
+        source = NEXT_HASH_RULES if read_file(head_ref, NEXT_HASH_RULES, cwd=cwd) is not None else HASH_RULES
+        rules_text = read_file(head_ref, source, cwd=cwd)
         if rules_text is None:
-            raise VersionCheckError(f"head/{HASH_RULES} is missing")
-        validate_rules_text(rules_text, HASH_RULES)
+            raise VersionCheckError(
+                f"head must contain {NEXT_HASH_RULES} or {HASH_RULES} when resource rules change"
+            )
+        validate_rules_text(rules_text, source)
 
 
 def main() -> int:
