@@ -31,10 +31,10 @@ def read_file(ref: str, path: str, cwd: str | None = None) -> str | None:
 
 def tracked_files(ref: str, cwd: str | None = None) -> list[str]:
     out = subprocess.check_output(
-        ["git", "ls-tree", "-r", "--name-only", ref],
+        ["git", "ls-tree", "-rz", "--name-only", ref],
         text=True, stderr=subprocess.DEVNULL, cwd=cwd,
     )
-    return [line for line in out.splitlines() if line]
+    return [path for path in out.split("\0") if path]
 
 
 def changed_entries(
@@ -43,25 +43,27 @@ def changed_entries(
     cwd: str | None = None,
 ) -> list[tuple[str, str, str]]:
     out = subprocess.check_output(
-        ["git", "diff", "--name-status", "--find-renames", base_ref, head_ref],
+        ["git", "diff", "--name-status", "-z", "--find-renames", base_ref, head_ref],
         text=True,
         stderr=subprocess.DEVNULL,
         cwd=cwd,
     )
     entries: list[tuple[str, str, str]] = []
-    for line in out.splitlines():
-        if not line.strip():
-            continue
-        parts = line.split("\t")
-        status = parts[0]
+    parts = [part for part in out.split("\0") if part]
+    index = 0
+    while index < len(parts):
+        status = parts[index]
+        index += 1
         if status.startswith("R"):
-            if len(parts) != 3:
-                raise VersionCheckError(f"invalid rename diff entry: {line!r}")
-            entries.append((status, parts[1], parts[2]))
+            if index + 1 >= len(parts):
+                raise VersionCheckError(f"invalid rename diff entry for status {status!r}")
+            entries.append((status, parts[index], parts[index + 1]))
+            index += 2
         else:
-            if len(parts) != 2:
-                raise VersionCheckError(f"invalid diff entry: {line!r}")
-            entries.append((status, parts[1], ""))
+            if index >= len(parts):
+                raise VersionCheckError(f"invalid diff entry for status {status!r}")
+            entries.append((status, parts[index], ""))
+            index += 1
     return entries
 
 

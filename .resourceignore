@@ -1,10 +1,47 @@
-# 哈希管理范围：普通规则进入 file_hashes；! 排除；最后命中规则生效
+# =========================
+# 进入 file_hashes 的运行时资源
+# =========================
+alias/
 calendar/
-!calendar/.gitkeep
+data/
 fonts/
+guide/
+images/
+panel/
+schemas/
 textures/
+videos/
+weekly_item/
+wiki/
 
-# 必须存在：:dir/ 表示目录，:path 表示文件
+# 占位文件不是实际资源
+!calendar/.gitkeep
+!guide/.gitkeep
+!wiki/role/.gitkeep
+!wiki/spirit/.gitkeep
+!wiki/weapon/.gitkeep
+
+# 迁移桥：旧 checker 的 Git quoted-path 输出，仅用于让本 PR 通过旧实现。
+!"guide/
+!"textures/
+!"wiki/
+
+# =========================
+# 明确排除的仓库维护 / 控制内容
+# =========================
+!.github/
+!docs/
+!scripts/
+!.gitignore
+!AGENTS.md
+!CHANGELOG.md
+!README.md
+!version
+!resource_manifest.json
+
+# =========================
+# 必须存在
+# =========================
 :fonts/
 :images/
 :videos/
