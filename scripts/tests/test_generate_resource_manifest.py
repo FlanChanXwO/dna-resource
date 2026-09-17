@@ -230,6 +230,108 @@ class TestApplyChangesReconcileShared:
 
 
 class TestVersionAndManifest:
+    def test_generate_rebuilds_manifest_from_source_files_only(self, tmp_path):
+        """manifest 必须可脱离旧 manifest，仅凭声明文件与资源重新生成。"""
+
+        (tmp_path / "fonts").mkdir()
+        (tmp_path / "textures").mkdir()
+        (tmp_path / "fonts" / "keep.ttf").write_bytes(b"a")
+        (tmp_path / "fonts" / "ignored.ttf").write_bytes(b"ignored")
+        (tmp_path / "textures" / "card.png").write_bytes(b"b")
+        (tmp_path / "version").write_text("10\n", encoding="utf-8")
+        (tmp_path / "resource_contract.json").write_text(
+            json.dumps(
+                {
+                    "format_version": 2,
+                    "required_dirs": ["fonts", "textures"],
+                    "required_files": ["fonts/keep.ttf"],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        (tmp_path / ".resourcehashes").write_text(
+            "fonts/\n!fonts/ignored.ttf\ntextures/card.png\n",
+            encoding="utf-8",
+        )
+
+        manifest = json.loads(gen.generate(tmp_path))
+
+        assert manifest == {
+            "format_version": 2,
+            "required_dirs": ["fonts", "textures"],
+            "required_files": ["fonts/keep.ttf"],
+            "resource_version": "10",
+            "file_hashes": {
+                "fonts/keep.ttf": (
+                    "ca978112ca1bbdcafac231b39a23dc4da786eff8147c4e72b9807785afee48bb"
+                ),
+                "textures/card.png": (
+                    "3e23e8160039594a33894f6564e1b1348bbd7a0088d42c4acb73eeaed59c009d"
+                ),
+            },
+        }
+
+    def test_incremental_generation_matches_full_rebuild(self, tmp_path):
+        """增量模式只能是优化，输出必须与完整重建字节一致。"""
+
+        (tmp_path / "fonts").mkdir()
+        (tmp_path / "fonts" / "a.ttf").write_bytes(b"a")
+        (tmp_path / "fonts" / "b.ttf").write_bytes(b"b")
+        (tmp_path / "version").write_text("9\n", encoding="utf-8")
+        (tmp_path / "resource_contract.json").write_text(
+            json.dumps(
+                {
+                    "format_version": 2,
+                    "required_dirs": ["fonts"],
+                    "required_files": [],
+                }
+            ),
+            encoding="utf-8",
+        )
+        (tmp_path / ".resourcehashes").write_text("fonts/\n", encoding="utf-8")
+        (tmp_path / "resource_manifest.json").write_text(
+            gen.generate(tmp_path),
+            encoding="utf-8",
+        )
+
+        gen.git_output("init", cwd=tmp_path)
+        gen.git_output("config", "user.name", "test", cwd=tmp_path)
+        gen.git_output("config", "user.email", "test@example.com", cwd=tmp_path)
+        gen.git_output("add", ".", cwd=tmp_path)
+        gen.git_output("commit", "-m", "baseline", cwd=tmp_path)
+
+        (tmp_path / "fonts" / "b.ttf").write_bytes(b"changed")
+        (tmp_path / "version").write_text("10\n", encoding="utf-8")
+        gen.git_output("add", "fonts/b.ttf", "version", cwd=tmp_path)
+        gen.git_output("commit", "-m", "update resource", cwd=tmp_path)
+
+        incremental = gen.generate_incremental(tmp_path)
+        rebuilt = gen.generate(tmp_path)
+
+        assert incremental == rebuilt
+
+    def test_read_contract_requires_explicit_v2_policy(self, tmp_path):
+        (tmp_path / "resource_contract.json").write_text(
+            json.dumps(
+                {
+                    "format_version": 2,
+                    "required_dirs": ["fonts", "data"],
+                    "required_files": ["data/redeem_codes.json"],
+                },
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+
+        contract = gen.read_contract(tmp_path)
+
+        assert contract == {
+            "format_version": 2,
+            "required_dirs": ["fonts", "data"],
+            "required_files": ["data/redeem_codes.json"],
+        }
+
     def test_resource_version_set_from_version_file(self):
         hashes: dict = {}
         rules = rules_of("fonts/\n")
@@ -249,6 +351,21 @@ class TestVersionAndManifest:
 
 
 class TestSerialize:
+    def test_preserves_explicit_required_files_contract(self):
+        manifest = {
+            "format_version": 2,
+            "required_dirs": ["fonts", "data"],
+            "required_files": ["data/redeem_codes.json"],
+            "file_hashes": {},
+            "resource_version": "10",
+        }
+
+        out = gen.serialize(manifest)
+
+        parsed = json.loads(out)
+        assert parsed["format_version"] == 2
+        assert parsed["required_files"] == ["data/redeem_codes.json"]
+
     def test_sorted_two_space_indent_no_ascii_escape_trailing_newline(self):
         manifest = {
             "format_version": 1,
