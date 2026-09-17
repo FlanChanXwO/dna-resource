@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+RULES_PATH = ".resourceignore"
 _FORBIDDEN_CHARS = set("*?[]")
 
 
@@ -112,10 +113,18 @@ class HashRuleSet:
             return path.startswith(prefix)
         return path == rule.path
 
+    def classify(self, path: str) -> bool | None:
+        """True=include，False=exclude，None=没有任何 hash 分类规则命中。"""
+        hit = self._match(path)
+        return hit.include if hit is not None else None
+
+    def is_declared(self, path: str) -> bool:
+        """路径是否被普通或 `!` 规则显式分类。"""
+        return self.classify(path) is not None
+
     def matches(self, path: str) -> bool:
         """给定仓库相对 POSIX 路径，判断是否受哈希管理。"""
-        hit = self._match(path)
-        return hit.include if hit is not None else False
+        return self.classify(path) is True
 
     def scan_dirs(self) -> list[str]:
         """返回需要枚举扫描的目录（供规则变更 reconciliation 使用）。
