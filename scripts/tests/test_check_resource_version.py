@@ -153,3 +153,49 @@ class TestMaintenanceFiles:
         (tmp_path / ".gitignore").write_text("__pycache__/\n")
         commit_all(tmp_path)
         run_check("main", "pr", tmp_path)  # 不抛错即通过
+
+
+class TestGeneratedManifestPR:
+    def test_manifest_edit_allowed_with_flag(self, tmp_path):
+        # Resource Manifest Sync 的 bot PR 修改 manifest：显式标志放行
+        make_repo(tmp_path)
+        git(tmp_path, "checkout", "-qb", "pr")
+        (tmp_path / "version").write_text("7\n")
+        m = json.loads((tmp_path / "resource_manifest.json").read_text())
+        m["resource_version"] = "7"
+        (tmp_path / "resource_manifest.json").write_text(json.dumps(m))
+        commit_all(tmp_path)
+        chk.check("main", "pr", cwd=str(tmp_path), allow_manifest_edit=True)  # 不抛错即通过
+
+    def test_manifest_edit_still_blocked_without_flag(self, tmp_path):
+        make_repo(tmp_path)
+        git(tmp_path, "checkout", "-qb", "pr")
+        (tmp_path / "version").write_text("7\n")
+        m = json.loads((tmp_path / "resource_manifest.json").read_text())
+        m["resource_version"] = "7"
+        (tmp_path / "resource_manifest.json").write_text(json.dumps(m))
+        commit_all(tmp_path)
+        with pytest.raises(chk.VersionCheckError, match="generated automatically"):
+            chk.check("main", "pr", cwd=str(tmp_path))
+
+    def test_manifest_only_sync_pr_skips_version_check(self, tmp_path):
+        # bot 的 manifest-only PR：无需 bump version
+        make_repo(tmp_path)
+        git(tmp_path, "checkout", "-qb", "pr")
+        m = json.loads((tmp_path / "resource_manifest.json").read_text())
+        m["file_hashes"]["fonts/a.ttf"] = "newhash"
+        (tmp_path / "resource_manifest.json").write_text(json.dumps(m))
+        commit_all(tmp_path)
+        chk.check("main", "pr", cwd=str(tmp_path), allow_manifest_edit=True)  # 不抛错即通过
+
+    def test_manifest_plus_other_changes_still_requires_bump(self, tmp_path):
+        # bot PR 若夹带其他资源文件（异常），仍按普通资源 PR 校验
+        make_repo(tmp_path)
+        git(tmp_path, "checkout", "-qb", "pr")
+        m = json.loads((tmp_path / "resource_manifest.json").read_text())
+        m["file_hashes"]["fonts/a.ttf"] = "newhash"
+        (tmp_path / "resource_manifest.json").write_text(json.dumps(m))
+        (tmp_path / "fonts" / "sneaky.ttf").write_text("x")
+        commit_all(tmp_path)
+        with pytest.raises(chk.VersionCheckError):
+            chk.check("main", "pr", cwd=str(tmp_path), allow_manifest_edit=True)

@@ -80,11 +80,13 @@ def validate_rules_text(text: str, source: str) -> None:
         raise VersionCheckError(f"{source} has invalid rules: {exc}") from exc
 
 
-def check(base_ref: str, head_ref: str, cwd: str | None = None) -> None:
+def check(base_ref: str, head_ref: str, cwd: str | None = None, allow_manifest_edit: bool = False) -> None:
     files = changed_files(base_ref, head_ref, cwd=cwd)
 
-    # manifest 是合并后自动生成的产物：PR 内出现即失败
-    if MANIFEST in files:
+    # manifest 是合并后自动生成的产物：PR 内出现即失败。
+    # 例外：Resource Manifest Sync 为 bot 生成的 manifest 开的 PR 传入标志放行；
+    # 该标志由 main 检出上的 workflow 决定，PR 内容无法注入
+    if MANIFEST in files and not allow_manifest_edit:
         raise VersionCheckError(
             f"{MANIFEST} is generated automatically after merge; "
             "do not edit it in pull requests"
@@ -92,12 +94,16 @@ def check(base_ref: str, head_ref: str, cwd: str | None = None) -> None:
 
     rules_changed = HASH_RULES in files
     if not has_resource_changes(files):
-        if rules_changed:
-            # .resourcehashes 属于资源契约，即使路径以资源无关前缀开头也不豁免
-            # （当前它就在仓库根目录，实际不会命中；这里显式防御语义）
-            pass
-        else:
-            print("Resource Version Check: skipped (no resource-related changes)")
+        print("Resource Version Check: skipped (no resource-related changes)")
+        return
+
+    # bot 生成的 manifest PR（由 Resource Manifest Sync 创建，带标志）：
+    # 只含 manifest 的变更等价于纯生成物同步，无需 bump version；
+    # 若还包含其他文件（异常情况），仍按普通资源 PR 严格校验
+    if allow_manifest_edit:
+        non_manifest = [f for f in files if f != MANIFEST]
+        if not non_manifest:
+            print("Resource Version Check: skipped (generated manifest sync PR)")
             return
 
     base_raw, head_raw = read_file(base_ref, "version", cwd=cwd), read_file(head_ref, "version", cwd=cwd)
@@ -131,8 +137,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base", required=True); parser.add_argument("--head", required=True)
     parser.add_argument("--cwd", default=None, help="git 命令工作目录（测试用；生产默认当前目录）")
+    parser.add_argument("--allow-manifest-edit", action="store_true",
+                        help="仅由 Resource Manifest Sync 对 bot 生成的 manifest PR 使用")
     args = parser.parse_args()
-    try: check(args.base, args.head, cwd=args.cwd)
+    try: check(args.base, args.head, cwd=args.cwd, allow_manifest_edit=args.allow_manifest_edit)
     except VersionCheckError as exc:
         print(f"resource version check failed:\n{exc}", file=sys.stderr); return 1
     print("Resource Version Check: passed"); return 0
