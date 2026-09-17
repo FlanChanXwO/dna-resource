@@ -4,9 +4,9 @@
 
 ## 版本（资源相关 PR 必须）
 
-根目录 `version` 只能是正整数。任何资源、别名、兑换码、字体、纹理或 `.resourcehashes` 变更都必须提高版本（严格大于 base）；仅改动 `docs/`、`scripts/`、`.github/` 等资源无关内容时检查自动跳过，无需 bump。提交前运行 `python3 scripts/check_resource_version.py --base <base-ref> --head <head-ref>`。首次迁移的 head 必须为 `1`；之后不得删除 `version`。
+根目录 `version` 只能是正整数。任何资源、别名、兑换码、字体、纹理或 `.resourceignore` 变更都必须提高版本（严格大于 base）；仅改动 `docs/`、`scripts/`、`.github/` 等资源无关内容时检查自动跳过，无需 bump。提交前运行 `python3 scripts/check_resource_version.py --base <base-ref> --head <head-ref>`。首次迁移的 head 必须为 `1`；之后不得删除 `version`。
 
-`resource_manifest.json` 是合并后自动生成的产物，禁止在 PR 中手工编辑：PR 合并后由 `Resource Manifest Sync` workflow 自动更新 `resource_version` 与 `file_hashes`。哈希覆盖范围由根目录 `.resourcehashes` 决定（`dir/` 递归目录、`path/file` 单文件、`!path` 排除；最后命中规则生效），修改它同样必须 bump `version`。
+`resource_manifest.json` 是合并后自动生成的产物，禁止在 PR 中手工编辑：PR 合并后由 `Resource Manifest Sync` workflow 从 `version`、`.resourceignore` 与实际资源文件自动生成。`.resourceignore` 中普通 `path`/`dir/` 规则纳入哈希，`!path`/`!dir/` 排除，`:path`/`:dir/` 声明必需文件/目录；修改它同样必须 bump `version`。
 
 ## 资源分类速览
 

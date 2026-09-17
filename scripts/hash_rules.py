@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""资源规则解析与路径匹配。
+"""`.resourceignore` 规则解析与路径匹配。
 
 第一版语法（刻意不实现完整 gitignore glob）：
 - 空行忽略；`#` 开头为注释；
@@ -17,7 +17,7 @@ _FORBIDDEN_CHARS = set("*?[]")
 
 
 class HashRuleError(ValueError):
-    """资源规则语法非法。"""
+    """`.resourceignore` 规则语法非法。"""
 
 
 def _validate_path(path: str) -> None:
@@ -90,9 +90,11 @@ class HashRuleSet:
         )
 
     def required_dirs(self) -> list[str]:
+        """返回 `:dir/` 声明的必需目录，去重并保持声明顺序。"""
         return list(self._required_dirs)
 
     def required_files(self) -> list[str]:
+        """返回 `:path` 声明的必需文件，去重并保持声明顺序。"""
         return list(self._required_files)
 
     def _match(self, path: str) -> _Rule | None:

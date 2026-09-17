@@ -44,9 +44,9 @@
 
 ## 版本规范与自动 manifest
 
-根目录 `version` 只能包含正整数。改动了资源相关内容（资源目录、`.resourcehashes`、`version` 等）的 PR 都必须将版本提高到严格大于 base 的数字；仅改动 `docs/`、`scripts/`、`.github/` 等资源无关内容的 PR 会自动跳过该检查。`Resource Version Check` 会校验是否豁免、格式和递增关系。
+根目录 `version` 只能包含正整数。改动了资源相关内容（资源目录、`.resourceignore`、`version` 等）的 PR 都必须将版本提高到严格大于 base 的数字；仅改动 `docs/`、`scripts/`、`.github/` 等资源无关内容的 PR 会自动跳过该检查。`Resource Version Check` 会校验是否豁免、格式和递增关系。
 
-**`resource_manifest.json` 是合并后自动生成的产物，禁止在 PR 中手工编辑**：PR 合并后，`Resource Manifest Sync` workflow（`github-actions[bot]`）从 `resource_contract.json` 投影契约字段，并自动更新 `resource_version` 与 `file_hashes`。普通资源维护不需要编辑契约文件；只有目录布局或“缺失即阻断发布”的文件集合变化时才修改 `resource_contract.json`。哈希覆盖范围由根目录 `.resourcehashes` 决定（`dir/` 递归目录、`path/file` 单文件、`!path` 排除；最后命中规则生效），修改它同样需要 bump `version`。
+**`resource_manifest.json` 是完全生成的产物，禁止在 PR 中手工编辑任何字段**。它可以从 `version`、`.resourceignore` 与实际资源文件完整重建：普通 `path`/`dir/` 规则纳入 `file_hashes`，`!path`/`!dir/` 排除，`:path` 声明必需文件，`:dir/` 声明必需目录。`:` 只声明存在性，不隐式纳入哈希。PR 合并后，`Resource Manifest Sync` workflow（`github-actions[bot]`）生成并提交 manifest；workflow 使用增量模式减少重复哈希，但其输出必须与完整重建一致。`.resourceignore` 是唯一人工维护的资源策略文件，修改它同样需要 bump `version`。
 
 ## 资源来源与维护方式
 

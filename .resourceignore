@@ -1,0 +1,25 @@
+# 哈希管理范围：普通规则进入 file_hashes；! 排除；最后命中规则生效
+calendar/
+!calendar/.gitkeep
+fonts/
+textures/
+
+# 必须存在：:dir/ 表示目录，:path 表示文件
+:fonts/
+:images/
+:videos/
+:panel/
+:alias/
+:data/
+:schemas/
+:wiki/role/
+:wiki/weapon/
+:wiki/spirit/
+:guide/
+:weekly_item/
+:calendar/
+:textures/
+:alias/char_alias.json
+:alias/weapon_alias.json
+:data/redeem_codes.json
+:schemas/redeem-codes.v1.schema.json
