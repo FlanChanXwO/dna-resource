@@ -134,6 +134,16 @@ class TestResourceHashes:
         with pytest.raises(chk.VersionCheckError, match="resourcehashes"):
             run_check("main", "pr", tmp_path)
 
+    def test_rules_file_can_migrate_to_resourceignore(self, tmp_path):
+        make_repo(tmp_path)
+        git(tmp_path, "checkout", "-qb", "pr")
+        (tmp_path / ".resourcehashes").unlink()
+        (tmp_path / ".resourceignore").write_text("fonts/\n:fonts/\n")
+        (tmp_path / "version").write_text("7\n")
+        commit_all(tmp_path)
+
+        run_check("main", "pr", tmp_path)
+
 
 class TestMaintenanceFiles:
     def test_scripts_tests_dir_is_maintenance_exempt(self, tmp_path):
