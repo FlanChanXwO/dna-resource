@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-"""`.resourcehashes` 规则解析与路径匹配。
+"""资源规则解析与路径匹配。
 
 第一版语法（刻意不实现完整 gitignore glob）：
 - 空行忽略；`#` 开头为注释；
 - `path/`：递归匹配目录；`path/file.ext`：匹配单文件；
 - `!path`：排除规则；规则按顺序处理，最后一次命中决定结果；
+- `:path`：声明必需文件；`:dir/`：声明必需目录；
 - 不支持 `*` `**` `?` 与字符组；
 - 所有路径必须为仓库相对 POSIX 路径，非法规则直接抛错（fail fast）。
 """
@@ -16,7 +17,7 @@ _FORBIDDEN_CHARS = set("*?[]")
 
 
 class HashRuleError(ValueError):
-    """`.resourcehashes` 规则语法非法。"""
+    """资源规则语法非法。"""
 
 
 def _validate_path(path: str) -> None:
@@ -49,14 +50,29 @@ class HashRuleSet:
 
     rules: list[_Rule] = field(default_factory=list)
     lines: list[str] = field(default_factory=list)
+    _required_dirs: list[str] = field(default_factory=list)
+    _required_files: list[str] = field(default_factory=list)
 
     @classmethod
     def parse(cls, text: str) -> "HashRuleSet":
         rules: list[_Rule] = []
         lines: list[str] = []
+        required_dirs: list[str] = []
+        required_files: list[str] = []
         for raw in text.splitlines():
             line = raw.strip()
             if not line or line.startswith("#"):
+                continue
+            if line.startswith(":"):
+                path = line[1:]
+                _validate_path(path)
+                if path.endswith("/"):
+                    normalized = path.rstrip("/")
+                    if normalized not in required_dirs:
+                        required_dirs.append(normalized)
+                elif path not in required_files:
+                    required_files.append(path)
+                lines.append(line)
                 continue
             include = True
             path = line
@@ -66,7 +82,18 @@ class HashRuleSet:
             _validate_path(path)
             rules.append(_Rule(include=include, path=path))
             lines.append(line)
-        return cls(rules=rules, lines=lines)
+        return cls(
+            rules=rules,
+            lines=lines,
+            _required_dirs=required_dirs,
+            _required_files=required_files,
+        )
+
+    def required_dirs(self) -> list[str]:
+        return list(self._required_dirs)
+
+    def required_files(self) -> list[str]:
+        return list(self._required_files)
 
     def _match(self, path: str) -> _Rule | None:
         """返回最后一条命中的规则；未命中返回 None。"""
