@@ -22,9 +22,9 @@
     "data/redeem_codes.json",
     "schemas/redeem-codes.v1.schema.json"
   ],
-  "resource_version": "12",
+  "resource_version": "13",
   "file_hashes": {
-    "alias/char_alias.json": "4c388f053af7e1b5d33a2261b689237f5a3e225fe7a6adde14a37a2f469270f2",
+    "alias/char_alias.json": "a53725558c3b9ef659078d98db7b58715524eeed6e0408b0b5c87ffe2cd54827",
     "alias/weapon_alias.json": "2ffd415643ab8161b60d6e676dbf10bfb3de153316f78d7ce9225a02312e9073",
     "calendar/banner_bg.webp": "43487d4b1941f1802803d745ff963102947ac71777be28a6f3fb9e6b3e6d1ba6",
     "calendar/banner_frame.png": "677eb3d23cae8b3cca2cef3c2b093711edf2d2778f5492111f52f4ea7961fa42",
