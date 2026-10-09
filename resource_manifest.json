@@ -22,7 +22,7 @@
     "data/redeem_codes.json",
     "schemas/redeem-codes.v1.schema.json"
   ],
-  "resource_version": "13",
+  "resource_version": "14",
   "file_hashes": {
     "alias/char_alias.json": "a53725558c3b9ef659078d98db7b58715524eeed6e0408b0b5c87ffe2cd54827",
     "alias/weapon_alias.json": "2ffd415643ab8161b60d6e676dbf10bfb3de153316f78d7ce9225a02312e9073",
@@ -281,6 +281,8 @@
     "textures/help/icon/切换UID.png": "e837f58cf031cdc83e9083e0e54dc55eec6e08eb96f5ef32756c7d47dce5362c",
     "textures/help/icon/删除UID.png": "b6fd4cc11f1332688bd479d662187fe2c7f498b3bfd85da30550b4c83e9dc33d",
     "textures/help/icon/删除全部UID.png": "76191e21f318d7047ade5c4c3bd9b8f21a32a5224c0a0f80cf7cd6d30a305302",
+    "textures/help/icon/删除密函缓存.png": "cd45a6b433716db39d94faedda4662eba455985621e0ece0d40af153d19d8837",
+    "textures/help/icon/刷新密函缓存.png": "9a52ed2cb9723f81d111c69222a0884ddd77618d470235d2064918ee4c863883",
     "textures/help/icon/卡片.png": "171802f4dc18ee325bc6456e0b63023eb1b6c68db3fa093ed849989b7f2c17b0",
     "textures/help/icon/取消全体偷窥.png": "2d34d469441b0004fcc041bba803ff643a990bb21dfbcf9a8743a9a7dc827f45",
     "textures/help/icon/取消订阅公告.png": "bf4423761e51ea47dd82bd03e25f6cf3c70dd30729f575b0d94877a76be93ad1",
