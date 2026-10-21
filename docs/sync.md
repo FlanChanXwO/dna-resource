@@ -50,6 +50,18 @@ Python 脚本不固定 `version` / `resource_manifest.json` 的仓库路径；�
 
 ## A. 游戏服 API 资源（images / weekly_item / calendar）
 
+### 基础图片优先使用匿名配置
+
+角色头像、立绘及武器图片可以先查询官方 `POST /role/build/config`，使用既有 h5 请求头；不需要账号凭据。
+从响应 `data.buildConfig` 选择 `type=1` 的角色或 `type=2` 的武器：
+
+- `thirdId` 是游戏 ID，分别用于 `images/role_avatar/{thirdId}.png`、`images/role_paint/{thirdId}.png` 和 `images/weapon/{thirdId}.png`。
+- `icon`、`paint` 是公开 CDN 图源；字段为空时保留缺口，不用 Wiki 条目 ID 或配置记录 `id` 替代 `thirdId`。
+- 新角色异形态按独立规范名和游戏 ID 收录；不得覆盖原形态。攻略标题匹配也应先匹配完整新角色名，避免归入旧角色。
+
+只有匿名配置未覆盖且确有必要的资源，才走下述登录态同步路径；不要为获取公开图片提取账号数据库凭据。
+
+
 ### 前置
 
 - 同步脚本：`DNA-analysis/script/sync_dna_resources.py`（与插件工作区同机，不在本仓库）。
