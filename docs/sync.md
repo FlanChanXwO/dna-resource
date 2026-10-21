@@ -34,16 +34,16 @@ Python 脚本不固定 `version` / `resource_manifest.json` 的仓库路径；�
 
 | 目录 | 内容 | 来源 | 更新方式 |
 |---|---|---|---|
-| `images/role_avatar` | 角色头像 31 | 游戏服 API + CDN | **脚本自动**（A） |
-| `images/role_paint` | 角色立绘 29 | 游戏服 API + CDN | **脚本自动**（A） |
-| `images/weapon` | 武器图标 64 | 游戏服 API + CDN | **脚本自动**（A） |
+| `images/role_avatar` | 角色头像 | 游戏服 API + CDN | **脚本自动**（A） |
+| `images/role_paint` | 角色立绘 | 游戏服 API + CDN | **脚本自动**（A） |
+| `images/weapon` | 武器图标 | 游戏服 API + CDN | **脚本自动**（A） |
 | `weekly_item` | 周报物品图标 | 周报 API（需有效登录态） | **脚本半自动**（A，凭证受限） |
 | `calendar` | 活动图 | 活动 API `spur/calendar/activity/*` | **脚本半自动**（A 或浏览器抓取） |
 | `wiki/{role,weapon,spirit}` | 图鉴静态图 | 皎皎角（`dnabbs`）官方 Wiki 详情页 | **脚本半自动**（B-wiki） |
 | `guide/<作者>` | 攻略静态图 | B站攻略作者合集 | **脚本自动**（B-guide） |
 | `panel` | 卡片通用背景图 | 人工收集 | **人工**（C） |
 | `alias/` | 角色/武器别名 | 人工维护 | 人工（PR） |
-| `data/redeem_codes.json` | 兑换码 | 历史迁移 + 人工 | 人工（PR） |
+| `data/redeem_codes.json` | 兑换码 | 官方发布 / 可追溯社区来源 | 人工（PR） |
 | `fonts/` | 渲染字体 | 静态 | 不动 |
 
 ---
@@ -64,30 +64,25 @@ Python 脚本不固定 `version` / `resource_manifest.json` 的仓库路径；�
 
 ### 前置
 
-- 同步脚本：`DNA-analysis/script/sync_dna_resources.py`（与插件工作区同机，不在本仓库）。
+- 同步脚本：`DNA-security-analysis/game-client/script/sync_dna_resources.py`（与插件工作区同机，不在本仓库）。
 - 运行环境：`astrbot-plugin-dev/.venv`（含 pycryptodome/requests）。
-- 凭证：从已登录插件的数据库中读取，格式 `token:dev_code:d_num:refresh_token`（冒号分隔，作为命令行参数传入；脚本不接收数据库路径）。
+- 凭证：仅使用维护者为本次同步明确提供的凭证，不读取账号数据库。格式 `token:dev_code:d_num:refresh_token`（冒号分隔，作为命令行参数传入；脚本不接收数据库路径）。
 - 网络：首次拉取若直连超时，可临时走 `http://127.0.0.1:7890` 代理。
 
 ### 拉取最新角色/武器/立绘
 
 ```bash
-# 读取凭证（脱敏使用，用完即删临时文件）
-sqlite3 <插件数据>/db/dna.sqlite3 \
-  "SELECT app_cookie||':'||app_device_code||':'||app_d_num||':'||app_refresh_token FROM credential_records WHERE app_status = 'valid' LIMIT 1" \
-  > /tmp/dna_cred.txt
-CRED=$(cat /tmp/dna_cred.txt); rm -f /tmp/dna_cred.txt
-
+# 仅在维护者已通过批准机制提供 CRED 后执行；不要从账号数据库提取。
 # dry-run 预览（不落盘）
 astrbot-plugin-dev/.venv/bin/python \
-  DNA-analysis/script/sync_dna_resources.py \
+  DNA-security-analysis/game-client/script/sync_dna_resources.py \
   --credential "$CRED" \
   --out <本仓库根> \
   --dry-run
 
 # 实际同步
 astrbot-plugin-dev/.venv/bin/python \
-  DNA-analysis/script/sync_dna_resources.py \
+  DNA-security-analysis/game-client/script/sync_dna_resources.py \
   --credential "$CRED" \
   --out <本仓库根>
 ```
@@ -97,7 +92,7 @@ astrbot-plugin-dev/.venv/bin/python \
 - `/role/defaultRoleForTool` 需签名（sa/tn+RSA），且 body 必须带 `userId`（从 JWT payload 解析）；脚本已自动处理。
 - 服务端响应偶发空（角色列表 0），脚本内置 3 次重试；仍空时等 10~20 秒重跑。
 - 凭证的 `d_num` 若过期，`/user/refreshToken` 会失败（222）；**只要现有 token 未失效仍可拉 defaultRoleForTool/getCharDetail**。
-- 角色覆盖：31 头像全有；29 立绘（男主 `120101`/`160101` 服务端不返回立绘，正常）；64 武器全有。
+- 覆盖以接口实际返回与本地文件差集为准；空图片字段保留缺口，不据此删除已有图片。
 - `weekly_item` / `calendar` 需要更严格的登录态（`/role/getItemWeeklyReport` 等接口会校验 d_num），当前多数凭证拉不到；周报图缺失时插件会运行时下载，不影响功能。
 
 ### 归档活动日历图（calendar/）
@@ -114,7 +109,7 @@ astrbot-plugin-dev/.venv/bin/python \
 
 图鉴 webp 的权威上游是**皎皎角（`dnabbs.yingxiong.com`）官方 Wiki 详情页**。该站点 SSR 渲染的正文容器 `.pec-right` 宽度就是 2460，与仓库里既有 `wiki/**.webp` 同源同尺寸（早期素材经由 DNAUID 间接搬运自同一站点，DNAUID 现已弃用）。
 
-历史素材保留原有尺寸基线 2460 宽；新角色/武器图鉴一律从皎皎角抓取。
+新角色/武器图鉴从皎皎角抓取，通常保留 2460 宽。单张 WebP 的边长上限为 16383；超过时按比例缩小整张图，不截掉尾部内容。
 
 ### 分类坐标（`POST /forum/wiki/condition` 可复核）
 
@@ -128,40 +123,41 @@ astrbot-plugin-dev/.venv/bin/python \
 
 1. **列条目**：`POST https://dnabbs-api.yingxiong.com/forum/wiki/list`，body `id=<categorize id>&filterIds=`，h5 头（`version: 3.11.1`、`source: h5`、origin/refer 为 `https://dnabbs.yingxiong.com`），**匿名可访问**。返回的 `wikiId` 就是详情 id。
 2. **取详情**：`POST /forum/wiki/getDetail`，body `id=<wikiId>`。`data.content` 是可 `json.loads` 的字符串，`content.name` 即规范名，可用来核对文件名。
-3. **抓长图**：Playwright 打开 `https://dnabbs.yingxiong.com/pc/wiki/wikidetail/<wikiId>`，等折叠区展开后读 `.pec-right` 的 `scrollHeight`，把 viewport 高度设成该值，再对 `.pec-right` 元素截图。
-4. **转码**：`Image.open(png).convert("RGB").save(webp, "WEBP", quality=80, method=6)`。
+3. **抓长图**：Playwright 打开 `https://dnabbs.yingxiong.com/pc/wiki/wikidetail/<wikiId>`，展开需要的正文页签，等待字体与正文图片完成加载。按正文底部扩展 `.pec-right` 和 viewport 高度，使用 `scale="css"` 截取完整内容，避免高 DPR 导致截图超限。
+4. **转码**：先检查截图尾部完整；超过 WebP 边长限制时用 LANCZOS 等比缩放，再以 RGB、`quality=80, method=6` 保存。完整解码并抽查正文可读性。
 
 注意：`/pc/wiki` 和 `/pc/wiki/list` 是空壳路由，直接打开会报“页面不存在 / 页面出了点问题”；`/pc/wiki/home` 才会真正渲染并暴露条目链接。
 
 - `wiki/` 文件名必须等于角色/武器/魔灵**规范名**（与 `alias/*.json` 的键一致），否则图鉴命令 `wiki_asset()` 解析不到。官方 Wiki 上主角写作 `光·狩月人（男）` 等，落到仓库仍用 `男主-光`、`女主-光` 这类既有键名。
-- 游戏服接口与皎皎角并非一一对应：`血染织羽`（武器 id `20298`）在游戏服武器列表里，皎皎角目前只在 `物品大全/灾厄` 下以“血染织羽的原型”出现，因此暂无对应图鉴图，属上游如此，不要伪造。
+- 用 `/forum/wiki/getDetail` 的 `lastEditTimeStr` 对照本地素材来源日期，检查既有条目的修订，不只补缺失文件。官方条目名「梦中的少年／少女」落到既有命名模式 `男主-水`／`女主-水`；「伊薇」继续解析到 `艾达（？？）`，保留旧名查询。
+- 游戏服图片与 Wiki 条目并非一一对应：没有条目时保留缺口；后续补建条目后应重新查询，不能一直沿用旧的缺失结论。
 
 ---
 
 ## B-guide. 攻略（guide/）静态素材 —— 来自 B 站攻略作者（持续更新）
 
-### 作者与图源（2026-09 实测验证）
+### 作者与图源
 
 | 作者 | B站 | 合集 | 攻略图位置 | 图特征 |
 |---|---|---|---|---|
 | **狩月庭攻略组** | mid 3546915226519877 | 合集 6985158 | 角色视频**评论区**"XX养成一图流"回复 | 1080 宽竖长图 |
-| **猫冬MT** | mid 91489061 | 合集 7015403「两个陀螺」 | 角色视频**封面** | 2560×1440 |
+| **猫冬MT** | mid 91489061 | 合集 7015403「两个陀螺」 | 角色视频**封面** | 横版原图，常见 1920×1080 / 2560×1440 |
 
 - 两处图已抽样验证与仓库 `guide/` 中现有文件尺寸/内容对应（如莉兹贝尔 1080×9500、妮弗尔夫人 1080×7300、扶疏 2560×1440）。
-- 作者会持续发布新角色攻略视频；**新角色出现时用脚本同步即可**，无需等插件仓库更新。
+- 作者会持续发布新角色攻略视频；使用同步脚本检查新增，并人工比较已有攻略的修订版，无需修改插件代码。
 
 ### 同步脚本（推荐）
 
 ```bash
-# 脚本：DNA-analysis/script/sync_bili_guide.py（与资源仓库同机）
+# 脚本：DNA-security-analysis/game-client/script/sync_bili_guide.py（与资源仓库同机）
 
 # dry-run 预览
 astrbot-plugin-dev/.venv/bin/python \
-  DNA-analysis/script/sync_bili_guide.py --out <本仓库> --dry-run
+  DNA-security-analysis/game-client/script/sync_bili_guide.py --out <本仓库> --dry-run
 
 # 实际同步（只补缺失角色，不覆盖已有）
 astrbot-plugin-dev/.venv/bin/python \
-  DNA-analysis/script/sync_bili_guide.py --out <本仓库>
+  DNA-security-analysis/game-client/script/sync_bili_guide.py --out <本仓库>
 
 # 只同步某作者 / 强制覆盖
 ... --author 狩月庭攻略组
@@ -169,7 +165,7 @@ astrbot-plugin-dev/.venv/bin/python \
 ```
 
 行为：
-- 拉两合集全部视频 → 按标题关键词识别角色 → 狩月庭翻评论找竖长图、猫冬取封面 → 存 `guide/<作者>/<角色>.webp`。
+- 拉两合集视频 → 优先按完整形态名识别角色 → 狩月庭翻评论找竖长图、猫冬取封面 → 存 `guide/<作者>/<角色>.webp`。「黎瑟·浴火」不能归入旧「黎瑟」；「伊薇」沿用 `艾达（？？）` 文件名。
 - 已存在角色跳过（保留本地/修订版）；评论只有横版图时跳过（宁缺毋滥，等作者发正式一图流）。
 - 狩月庭评论图 URL 含作者 mid 片段，可用于人工核对。
 
@@ -186,7 +182,7 @@ cp -n /tmp/dnauid_upstream/DNAUID/dna_guide/texture2d/<作者>/*.webp <本仓库
 
 ### 覆盖范围说明
 
-- 当前 guide 仅覆盖部分角色（如狩月庭 15、猫冬 11）；无攻略角色是作者尚未发布对应视频，不是搬运遗漏。
+- guide 只覆盖作者已发布且已核对来源的图片；缺少图片时应先查合集和既有标题映射，不能直接判定作者未产出。
 - 作者已发布但评论无正式长图的角色（如个别新角色只有横版配置图），脚本会跳过——需作者补发一图流后再同步。
 
 ---
@@ -238,7 +234,7 @@ assert s.wiki_asset('贝蕾妮卡'), '角色图鉴索引失败'
 
 ## 已知边界（如实记录，避免误判）
 
-- 男主（`120101`/`160101`）无官方立绘，`role_paint` 只有 29 张属正常。
-- guide 只覆盖 15 角色；其余 17 角色无攻略是攻略组未产出。
+- 男主部分形态无官方立绘；按接口图片字段确认，不伪造。
+- 兑换码仅按公开发布信息收录，不使用账号试兑；无明确有效期时不编造时间，也不将“未注明失效”写成“已验证有效”。奖励与期限的来源见 CHANGELOG。
 - 活动图约 6/16 有 icon；calendar 图少是上游如此。
 - 素材权利：wiki/guide/panel 的第三方静态图，公开分发前需确认上游权利；皎皎角 Wiki 内容为社区贡献者产出，游戏素材权利归官方。

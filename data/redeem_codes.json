@@ -2,6 +2,19 @@
   "format_version": 1,
   "data": [
     {
+      "code": "螺友的酒",
+      "reward": "月石*450、深红凝珠*3000、战斗旋律·三*10、武器说明书·三*10、铜币*300000",
+      "servers": [
+        "cn"
+      ]
+    },
+    {
+      "code": "TOWARDSTHEDAWN",
+      "servers": [
+        "global"
+      ]
+    },
+    {
       "code": "狩月的意义",
       "reward": "月石*450、深红凝珠*3000、战斗旋律·三*10、武器说明书·三*10、铜币*300000",
       "servers": [
